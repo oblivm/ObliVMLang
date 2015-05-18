@@ -14,7 +14,7 @@ References
 
 \[LWNYS12] [
   _ObliVM: A Programming Framework for Secure Computation_
-]
+] (http://www.cs.umd.edu/~liuchang/paper/oakland2015-oblivm.pdf)
   Chang Liu, Xiao Shuan Wang, Kartik Nayak, Yan Huang, Elaine Shi
   IEEE S&P 2012
 
