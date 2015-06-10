@@ -1,0 +1,1143 @@
+/***
+ * Copyright (C) 2015 by Chang Liu <liuchang@cs.umd.edu>
+ */
+
+PARSER_BEGIN(CParser)
+
+/***
+ * Copyright (C) 2015 by Chang Liu <liuchang@cs.umd.edu>
+ */
+package com.oblivm.compiler.parser;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.oblivm.compiler.ast.ASTFunction;
+import com.oblivm.compiler.ast.ASTFunctionDef;
+import com.oblivm.compiler.ast.ASTFunctionNative;
+import com.oblivm.compiler.ast.ASTProgram;
+import com.oblivm.compiler.ast.expr.ASTAndPredicate;
+import com.oblivm.compiler.ast.expr.ASTArrayExpression;
+import com.oblivm.compiler.ast.expr.ASTBinaryExpression;
+import com.oblivm.compiler.ast.expr.ASTBinaryExpression.BOP;
+import com.oblivm.compiler.ast.expr.ASTBinaryPredicate;
+import com.oblivm.compiler.ast.expr.ASTBinaryPredicate.REL_OP;
+import com.oblivm.compiler.ast.expr.ASTConstantExpression;
+import com.oblivm.compiler.ast.expr.ASTExpression;
+import com.oblivm.compiler.ast.expr.ASTFloatConstantExpression;
+import com.oblivm.compiler.ast.expr.ASTFuncExpression;
+import com.oblivm.compiler.ast.expr.ASTLogExpression;
+import com.oblivm.compiler.ast.expr.ASTNullExpression;
+import com.oblivm.compiler.ast.expr.ASTOrPredicate;
+import com.oblivm.compiler.ast.expr.ASTPredicate;
+import com.oblivm.compiler.ast.expr.ASTRangeExpression;
+import com.oblivm.compiler.ast.expr.ASTRecExpression;
+import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTVariableExpression;
+import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
+import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
+import com.oblivm.compiler.ast.stmt.ASTIfStatement;
+import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
+import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement.Condition;
+import com.oblivm.compiler.ast.stmt.ASTReturnStatement;
+import com.oblivm.compiler.ast.stmt.ASTStatement;
+import com.oblivm.compiler.ast.stmt.ASTUsingStatement;
+import com.oblivm.compiler.ast.stmt.ASTWhileStatement;
+import com.oblivm.compiler.ast.type.ASTArrayType;
+import com.oblivm.compiler.ast.type.ASTDummyType;
+import com.oblivm.compiler.ast.type.ASTFloatType;
+import com.oblivm.compiler.ast.type.ASTFunctionType;
+import com.oblivm.compiler.ast.type.ASTIntType;
+import com.oblivm.compiler.ast.type.ASTLabel;
+import com.oblivm.compiler.ast.type.ASTNativeType;
+import com.oblivm.compiler.ast.type.ASTRecType;
+import com.oblivm.compiler.ast.type.ASTRndType;
+import com.oblivm.compiler.ast.type.ASTType;
+import com.oblivm.compiler.ast.type.ASTVariableType;
+import com.oblivm.compiler.ast.type.ASTVoidType;
+import com.oblivm.compiler.util.Pair;
+
+
+public class CParser{
+    ASTType __type__;
+    Map<String, ASTExpression> def = new HashMap<String, ASTExpression>();
+    ASTProgram program;
+    
+	public static ASTProgram parse(String filename) {
+		CParser parser = null;
+		try {
+			parser = new CParser(new java.io.FileInputStream(filename));
+			parser.program = new ASTProgram();
+			return parser.TranslationUnit();
+		}
+		catch(java.io.FileNotFoundException e) {
+			System.out.println("Error:  File " + filename + " not found.");
+			return null;
+		} catch (ParseException e) {
+			System.out.println("Error: Parsing Error " + e.getMessage());
+			return null;
+		}
+	}
+	
+  }
+
+PARSER_END(CParser)
+
+SKIP : {
+ " "
+|  "\t"
+|  "\n"
+|  "\r"
+|  <"//" (~["\n", "\r"])* ("\n" | "\r" | "\r\n")>
+|  <"/*" (~["*"])* "*" ("*" | ~["*", "/"] (~["*"])* "*")* "/">
+//| "#" : PREPROCESSOR_OUTPUT
+}
+
+<PREPROCESSOR_OUTPUT> SKIP:
+{
+     "\n" : DEFAULT
+}
+
+<PREPROCESSOR_OUTPUT> MORE:
+{
+ "\\\n"
+ |
+ "\\\r\n"
+ |
+ < ~[] >
+}
+
+
+TOKEN : {
+ <INTEGER_LITERAL: <DECIMAL_LITERAL> (["l", "L"])? | <HEX_LITERAL> (["l", "L"])? | <OCTAL_LITERAL> (["l", "L"])?>
+|  <#DECIMAL_LITERAL: ["1"-"9"] (["0"-"9"])*>
+|  <#HEX_LITERAL: "0" ["x", "X"] (["0"-"9", "a"-"f", "A"-"F"])+>
+|  <INT_TYPE: "int" (["0"-"9"])*>
+|  <RND_TYPE: "rnd" (["0"-"9"])*>
+|  <FLOAT_TYPE: "float" (["0"-"9"])*>
+|  <STRING_TYPE: "string">
+|  <#OCTAL_LITERAL: "0" (["0"-"7"])*>
+|  <FLOATING_POINT_LITERAL: (["0"-"9"])+ "." (["0"-"9"])* (<EXPONENT>)? (["f", "F", "d", "D"])? | "." (["0"-"9"])+ (<EXPONENT>)? (["f","F","d","D"])? | (["0"-"9"])+ <EXPONENT> (["f","F","d","D"])? | (["0"-"9"])+ (<EXPONENT>)? ["f","F","d","D"]>
+|  <#EXPONENT: ["e", "E"] (["+", "-"])? (["0"-"9"])+>
+|  <CHARACTER_LITERAL: "\'" (~["\'", "\\", "\n", "\r"] | "\\" (["n", "t", "b", "r", "f", "\\", "\'", "\""] | ["0"-"7"] (["0"-"7"])? | ["0"-"3"] ["0"-"7"] ["0"-"7"])) "\'">
+|  <STRING_LITERAL: "\"" ( ~["\"", "\\", "\n", "\r"] | "\\" ( ["n", "t", "b", "r", "f", "\\", "\'", "\""] | ["0"-"7"] (["0"-"7"])?  | ["0"-"3"] ["0"-"7"] ["0"-"7"] | ( ["\n", "\r"] | "\r\n")))* "\"">
+}
+
+TOKEN : {
+	<WHILE: "while"> |
+	<ELSE: "else"> |
+	<VOID: "void"> |
+	<ALICE: "alice"> |
+	<BOB: "bob"> |
+	<SECURE: "secure"> |
+	<PUBLIC: "public"> |
+	<STRUCT: "struct"> |
+	<NATIVE: "native"> |
+	<DUMMY: "dummy"> |
+	<PHANTOM: "phantom"> |
+	<TYPEDEF: "typedef"> |
+	<FOR: "for"> |
+	<BFOR: "bfor"> |
+	<BWHILE: "bwhile"> |
+	<BOT: "bot"> |
+	<LOG: "log"> |
+	<IF: "if"> |
+	<RETURN : "return"> |
+	<ONREAL : "ONREAL"> |
+	<AFFINE : "affine"> |
+	<ONDUMMY : "ONDUMMY"> |
+	<NULL : "null"> |
+	<PACKAGE : "package"> |
+	<USING : "using">
+}
+
+TOKEN : {
+ <IDENTIFIER: <LETTER> (<LETTER> | <DIGIT>)*>
+|  <#LETTER: ["A"-"Z", "_", "a"-"z"]>
+|  <#DIGIT: ["0"-"9"]>
+}
+
+
+ASTExpression RangeAtomicExpression() : 
+{
+	ASTExpression e;
+	Token tok, tok1;
+	ASTExpression ret;
+}
+{	
+	e = ConstantExpression() { return e; }
+	| LOOKAHEAD(2) "(" e = RangeExpression() ")" { return e; }
+ 	| tok = <IDENTIFIER> { ret = new ASTVariableExpression(tok.image);
+ 							ret.setBeginPosition(tok.beginLine, tok.beginColumn); 
+ 							ret.setEndPosition(tok.endLine, tok.endColumn);
+ 							return ret; 
+ 						} 
+ 	| tok = <LOG> "(" e = RangeExpression() tok1 = ")" 
+ 			{
+ 				ret = new ASTLogExpression(e);  
+ 				ret.setBeginPosition(tok.beginLine, tok.beginColumn); 
+ 				ret.setEndPosition(tok1.endLine, tok1.endColumn);
+ 				return ret;
+ 			}
+}
+
+ASTExpression AtomicExpression() : 
+{
+	ASTExpression e, idx, par, bit, rangel, ranger;
+	Token v, tok, tok1, tok2;
+	List<ASTType> var;
+	List<ASTExpression> bits;
+	ASTRecType rt;
+	ASTExpression ret;
+}
+{
+	tok = <NULL> { 
+			ret = new ASTNullExpression();
+			ret.setBeginPosition(tok.beginLine, tok.beginColumn);
+			ret.setEndPosition(tok.endLine, tok.endColumn);  
+		}
+	| e = ConstantExpression() { return e; }
+	| LOOKAHEAD(2) "(" e = BIExpression() ")" { return e; }
+ 	| e = VariableExpression() { var = null; bits = null; }
+		(  
+			"." v = <IDENTIFIER> { 
+					ret = new ASTRecExpression(e, v.image);
+					ret.setBeginPosition(e.beginPosition);
+					ret.setEndPosition(v.endLine, v.endColumn); 
+					e = ret;
+				}
+			| "[" idx = BIExpression() tok = "]" 
+				{ 
+					ret = new ASTArrayExpression(e, idx);
+					ret.setBeginPosition(e.beginPosition);
+					ret.setEndPosition(tok.endLine, tok.endColumn); 
+					e = ret; 
+				}
+			| LOOKAHEAD(2)
+				(
+					"@" { if (bits == null) bits = new ArrayList<ASTExpression>(); }
+				      ( v = <IDENTIFIER> {
+					      		if (def.containsKey(v.image)) {
+					      			// TODO set position
+									bits.add(def.get(v.image));
+								} else {
+									ASTVariableExpression tmp_bit_v = new ASTVariableExpression(v.image);
+									tmp_bit_v.setBeginPosition(v.beginLine, v.beginColumn);
+									tmp_bit_v.setEndPosition(v.endLine, v.endColumn);
+									bits.add(tmp_bit_v);
+								} 
+				      	}
+					    | "(" bit = BIExpression() ")" { bits.add(bit); }
+					    | tok = <LOG>
+					    	"(" bit = BIExpression() tok1 = ")" {
+					    		ASTExpression tmp_log_exp = new ASTLogExpression(bit);
+					    		tmp_log_exp.setBeginPosition(tok.beginLine, tok.beginColumn);
+					    		tmp_log_exp.setEndPosition(tok1.endLine, tok1.endColumn); 
+					    		bits.add(tmp_log_exp); 
+					    	}
+					  )
+				)*
+				[ var = TypeVariablesInExp() ]
+			  "(" { ret = new ASTFuncExpression(e, bits, var);
+			  		ret.setBeginPosition(e.beginPosition);
+			  		e = ret; 
+			  		}
+				[
+					(
+						LOOKAHEAD(2) v = <IDENTIFIER> "=" par = BIExpression()
+						{ ((ASTFuncExpression)e).addInputs(v.image, par); }
+						| 
+						par = BIExpression() 
+						{ 
+							((ASTFuncExpression)e).addInputs(par); 
+						}
+					)
+					( ","
+						(LOOKAHEAD(2) v = <IDENTIFIER> "=" par = BIExpression()
+						{
+							((ASTFuncExpression)e).addInputs(v.image, par);
+						}
+						| par = BIExpression() { ((ASTFuncExpression)e).addInputs(par); })
+					)*
+				]
+				tok1 = ")" { bits = null; ret.setEndPosition(tok1.endLine, tok1.endColumn); }
+		)* 
+	[ 
+		LOOKAHEAD(2) "$" { rangel = ranger = null; } rangel = RangeExpression() 
+			["~" ranger = RangeExpression()] tok1 = "$"
+			{
+				ret = new ASTRangeExpression(e, rangel, ranger);
+				ret.setBeginPosition(e.beginPosition);
+				ret.setEndPosition(tok1.endLine, tok1.endColumn);
+				e = ret;
+			}
+		| ".(" par = Expression() 
+			{ 
+				if (!(par instanceof ASTTupleExpression)) {
+					ret = new ASTTupleExpression(par);
+					ret.setBeginPosition(par.beginPosition);
+					ret.setEndPosition(par.endPosition);
+					par = ret; 
+				}
+			} 
+		  tok1 = ")" { 
+		  		ret = new ASTRecTupleExpression(e, (ASTTupleExpression)par);
+		  		ret.setBeginPosition(e.beginPosition);
+		  		ret.setEndPosition(tok1.endLine, tok1.endColumn);
+		  		e = ret; 
+		  	}
+	]
+	{ return e; }
+}
+
+ASTProgram TranslationUnit() : 
+{
+	Token name;
+	ASTType t;
+	ASTFunction f, b; 
+}
+{
+	{
+		program = new ASTProgram();	
+		def.clear(); 
+	}
+	[ <PACKAGE> { 
+					StringBuffer sb = new StringBuffer();
+				}
+	  name = <IDENTIFIER> { sb.append(name.image); }
+	  ( "." name = <IDENTIFIER> { sb.append("."+name.image); }
+	  )* ";"
+	  {
+	  	program.packageName = sb.toString();
+	  }
+	] 
+	(PreDefine())*
+	( TypeDefinition() | FunctionDefinition() )* 
+	{
+		return program;
+	}
+}
+
+void PreDefine() : 
+{
+	Token v;
+	ASTExpression exp;
+}
+{
+	"#define" v = <IDENTIFIER> exp = Expression()
+	{
+		def.put(v.image, exp);
+	}
+}
+
+void TypeDefinition() : { }
+{
+	StructDef()	| TypeDef()
+}
+
+List<ASTType> TypeVariablesInExp() :
+{
+	ASTType tyVar;
+	List<ASTType> ret = new ArrayList<ASTType>();
+}
+{
+	"{" tyVar = Type(ASTLabel.Secure) { ret.add(tyVar); } 
+		(LOOKAHEAD(2) "," tyVar = Type(ASTLabel.Secure) { ret.add(tyVar); } )* "}" { return ret; }
+}
+
+List<ASTType> TypeVariables() :
+{
+	ASTType tyVar;
+	List<ASTType> ret = new ArrayList<ASTType>();
+}
+{
+	"<" tyVar = Type(ASTLabel.Secure) { ret.add(tyVar); } 
+		(LOOKAHEAD(2) "," tyVar = Type(ASTLabel.Secure) { ret.add(tyVar); } )* ">" { return ret; }
+}
+
+int Constant() : 
+{
+	Token n;
+}
+{
+ 	n = <INTEGER_LITERAL> { return com.oblivm.compiler.util.Helper.parseInt(n.image); }
+}
+
+double FloatConstant() : 
+{
+	Token n;
+}
+{
+ 	n = <FLOATING_POINT_LITERAL> { return Double.parseDouble(n.image); }
+}
+
+void StructDef() : 
+{
+	Token v;
+	ASTRecType type;
+	ASTType tyVar;
+	List<ASTType> var;
+	Token tok, tok1, tok2;
+}
+{
+	tok = <STRUCT> v = <IDENTIFIER> { 
+		type = new ASTRecType(v.image, ASTLabel.Secure);
+		type.setBeginPosition(tok.beginLine, tok.beginColumn); 
+	}
+	( "@" v = <IDENTIFIER> {
+							type.bitVariables.add(new ASTVariableExpression(v.image, v.beginLine, v.endLine, v.beginColumn, v.endColumn));
+							if(!program.typeBitVarDef.containsKey(type.name))
+								program.typeBitVarDef.put(type.name, new ArrayList<ASTExpression>());
+							program.typeBitVarDef.get(type.name).add(
+								new ASTVariableExpression(v.image, v.beginLine, v.endLine, v.beginColumn, v.endColumn)); 
+							} )* 
+	[ var = TypeVariables() 
+		{ type.typeVariables = var; 
+		  program.typeVarDef.put(type.name, var); } ] 
+	"{" (tyVar = Type(ASTLabel.Secure) v = <IDENTIFIER> 
+			{ 
+				type.fields.add(v.image); 
+				type.fieldsType.put(v.image, tyVar);
+			} 
+			(
+				"," v = <IDENTIFIER> 
+				{ 
+					type.fields.add(v.image); 
+					type.fieldsType.put(v.image, tyVar);
+				}
+			)* ";" )* 
+	tok = "}" ";" {
+		type.setEndPosition(tok.endLine, tok.endColumn); 
+		this.program.typeDef.add(new Pair<String, ASTType>(type.name, type)); 
+	}
+}
+
+void TypeDef() :
+{
+	String name;
+	Token v;
+	ASTVariableType type;
+	ASTType tmp;
+	List<ASTType> inputs = null;
+	List<ASTType> var = null;
+	ASTLabel label = ASTLabel.Secure;
+}
+{
+	<TYPEDEF> v = <IDENTIFIER> { name = v.image; 
+								 type = new ASTVariableType(v.image, false); 
+								 type.setBeginPosition(v.beginLine, v.beginColumn);
+								 }
+    	( "@" v = <IDENTIFIER> {
+    						if(def.containsKey(v.image))
+    							type.bitVars.add(def.get(v.image));
+    						else
+								type.bitVars.add(new ASTVariableExpression(v.image, v.beginLine, v.endLine, v.beginColumn, v.endColumn)); 
+							} )* 
+	    (var = TypeVariables() { type.typeVars = var; })?
+	[ { name = null; } [ v = <IDENTIFIER> { name = v.image; } { var = null; } 
+	    (var = TypeVariables() { type.typeVars = var; })? ]
+	  "(" {inputs = new ArrayList<ASTType>(); } [tmp = Type(ASTLabel.Secure) { inputs.add(tmp); } ("," tmp = Type(ASTLabel.Secure) { inputs.add(tmp); } )*] 
+	  ")" 
+	] { type.setEndPosition(token.endLine, token.endColumn); }
+	"=" tmp = Type(ASTLabel.Secure) {
+		if(tmp instanceof ASTNativeType) {
+			for (int w = 0; w < type.bitVars.size(); ++ w) {
+				((ASTNativeType)tmp).bitVariables.add(((ASTVariableExpression)type.bitVars.get(w)).var);
+			}
+		}
+		if(inputs == null) {
+			program.typeBitVarDef.put(name, type.bitVars);
+			program.typeVarDef.put(name, type.typeVars);
+			program.typeDef.add(new Pair<String, ASTType>(name, tmp));
+		} else {
+			ASTFunctionType fty = new ASTFunctionType(type, name, inputs, true);
+			if(var != null) {
+				for(ASTType ty : var) {
+					fty.typeParameter.add(ty);
+				}
+			}
+			program.functionTypeMapping.add(new Pair<ASTFunctionType, ASTType>(fty, tmp));
+		} 
+		}
+	";" 
+}
+
+ASTLabel Label() : {}
+{
+	  <ALICE> { return ASTLabel.Alice; }
+	| <BOB> { return ASTLabel.Bob; }
+	| <SECURE> { return ASTLabel.Secure; }
+	| <PUBLIC> { return ASTLabel.Pub; }
+}
+
+ASTType Type(ASTLabel defaultLabel) : 
+{
+	ASTType type;
+	ASTLabel lab = defaultLabel;
+	Token v, tok, tok1, tok2; 
+	int bit;
+	Token bitVar;
+	ASTExpression bitExp = null;
+	List<ASTExpression> dim = new ArrayList<ASTExpression>();
+	List<ASTLabel> labs = new ArrayList<ASTLabel>();
+	ASTExpression number;
+	List<ASTType> var;
+	boolean isDummy = false;
+	ASTVariableType vt = null;
+	boolean affine = false;
+}
+{
+	[ <DUMMY> { isDummy = true; } ]
+	(
+		tok = <NATIVE> v = <IDENTIFIER> { 
+			type = new ASTNativeType(v.image, new ArrayList<String>());
+			type.setBeginPosition(tok.beginLine, tok.beginColumn);
+			type.setEndPosition(v.endLine, v.endColumn);
+			return type; 
+		} 
+		| ( [ lab = Label() ] ( v = <INT_TYPE> 
+			[ tok2 = "@"  
+				(  bit = Constant() {
+						bitExp = new ASTConstantExpression(bit);
+						bitExp.setBeginPosition(tok2.beginLine, tok2.beginColumn + 1);
+						bitExp.setEndPosition(token.endLine, token.endColumn); 
+					}
+					| bitVar = <IDENTIFIER> {
+							if(def.containsKey(bitVar.image))
+								bitExp = def.get(bitVar.image);
+							else 
+								bitExp = new ASTVariableExpression(bitVar); 
+						} 
+					| "(" bitExp = BIExpression() ")"  
+				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
+				    	{ 
+				    		ASTExpression tmp = new ASTLogExpression(bitExp);
+				    		tmp.setBeginPosition(tok.beginLine, tok.beginColumn);
+				    		tmp.setEndPosition(tok.endLine, tok.endColumn);
+				    		bitExp = tmp; 
+				    	}
+				) ]
+	  	{
+	  		if(v.image.length() > 3) 
+	  			bit = Integer.parseInt(v.image.substring(3));
+	  		else
+	  			bit = -1;
+	  		if(bit >= 0 && bitExp != null)
+	  			throw new RuntimeException("too many bit information!");
+	  		if(bit >= 0) {
+	  			bitExp = new ASTConstantExpression(bit);
+	  			bitExp.setBeginPosition(v.beginLine, v.beginColumn + 3);
+	  			bitExp.setEndPosition(v.endLine, v.endColumn);
+	  		}
+			type = ASTIntType.get(bitExp, lab);
+			type.setBeginPosition(v.beginLine, v.beginColumn);
+			type.setEndPosition(token.endLine, token.endColumn); 
+	  	} 
+		| v = <FLOAT_TYPE> 
+			[ tok2 = "@"  
+				(  bit = Constant() {
+						bitExp = new ASTConstantExpression(bit);
+						bitExp.setBeginPosition(tok2.beginLine, tok2.beginColumn + 1);
+						bitExp.setEndPosition(token.endLine, token.endColumn); 
+					}
+					| bitVar = <IDENTIFIER> {
+							if(def.containsKey(bitVar.image))
+								bitExp = def.get(bitVar.image);
+							else 
+								bitExp = new ASTVariableExpression(bitVar); 
+						} 
+					| "(" bitExp = BIExpression() ")"  
+				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
+				    	{ 
+				    		ASTExpression tmp = new ASTLogExpression(bitExp);
+				    		tmp.setBeginPosition(tok.beginLine, tok.beginColumn);
+				    		tmp.setEndPosition(tok.endLine, tok.endColumn);
+				    		bitExp = tmp; 
+				    	}
+				) ]
+	  	{
+	  		if(v.image.length() > 5) 
+	  			bit = Integer.parseInt(v.image.substring(5));
+	  		else
+	  			bit = -1;
+	  		if(bit >= 0 && bitExp != null)
+	  			throw new RuntimeException("too many bit information!");
+	  		if(bit >= 0) {
+	  			bitExp = new ASTConstantExpression(bit);
+	  			bitExp.setBeginPosition(v.beginLine, v.beginColumn + 5);
+	  			bitExp.setEndPosition(v.endLine, v.endColumn);
+	  		}
+			type = ASTFloatType.get(bitExp, lab);
+			type.setBeginPosition(v.beginLine, v.beginColumn);
+			type.setEndPosition(token.endLine, token.endColumn); 
+	  	} ) 
+		| v = <RND_TYPE> 
+			[ tok2 = "@"  
+				(  bit = Constant() {
+						bitExp = new ASTConstantExpression(bit);
+						bitExp.setBeginPosition(tok2.beginLine, tok2.beginColumn + 1);
+						bitExp.setEndPosition(token.endLine, token.endColumn); 
+					}
+					| bitVar = <IDENTIFIER> {
+							if(def.containsKey(bitVar.image))
+								bitExp = def.get(bitVar.image);
+							else 
+								bitExp = new ASTVariableExpression(bitVar); 
+						} 
+					| "(" bitExp = BIExpression() ")"  
+				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
+				    	{ 
+				    		ASTExpression tmp = new ASTLogExpression(bitExp);
+				    		tmp.setBeginPosition(tok.beginLine, tok.beginColumn);
+				    		tmp.setEndPosition(tok.endLine, tok.endColumn);
+				    		bitExp = tmp; 
+				    	}
+				) ]
+	  	{
+	  		if(v.image.length() > 3) 
+	  			bit = Integer.parseInt(v.image.substring(3));
+	  		else
+	  			bit = -1;
+	  		if(bit >= 0 && bitExp != null)
+	  			throw new RuntimeException("too many bit information!");
+	  		if(bit >= 0) {
+	  			bitExp = new ASTConstantExpression(bit);
+	  			bitExp.setBeginPosition(v.beginLine, v.beginColumn + 3);
+	  			bitExp.setEndPosition(v.endLine, v.endColumn);
+	  		}
+			type = ASTRndType.get(bitExp, lab);
+			type.setBeginPosition(v.beginLine, v.beginColumn);
+			type.setEndPosition(token.endLine, token.endColumn); 
+	  	} 
+		| [<AFFINE> { affine = true; }] v = <IDENTIFIER> 
+			{ 
+				type = vt = new ASTVariableType(v.image, affine);
+				vt.setBeginPosition(v.beginLine, v.beginColumn);
+				vt.setEndPosition(v.endLine, v.endColumn); 
+			}
+		  ( "@"  (  bit = Constant() {
+		  								bitExp = new ASTConstantExpression(bit);
+		  								bitExp.setBeginPosition(token.beginLine, token.beginColumn);
+		  								bitExp.setEndPosition(token.endLine, token.endColumn); 
+		  							 }
+					| bitVar = <IDENTIFIER> {
+						if(def.containsKey(bitVar.image))
+							bitExp = def.get(bitVar.image);
+						else 
+							bitExp = new ASTVariableExpression(bitVar); 
+					} 
+					| "(" bitExp = BIExpression() ")" 
+				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" { 
+				    	ASTExpression tmp = new ASTLogExpression(bitExp);
+				    	tmp.setBeginPosition(tok.beginLine, tok.beginColumn);
+				    	tmp.setEndPosition(tok1.endLine, tok1.endColumn);
+				    	bitExp = tmp; 
+				    }
+				   )
+		  	{ vt.bitVars.add(bitExp); } 
+		  )* 
+	  )
+	) { if(isDummy) { 
+			ASTType tmp = new ASTDummyType(type);
+			tmp.setBeginPosition(type.beginPosition);
+			tmp.setEndPosition(type.endPosition);
+			type = tmp;
+		} 
+	  }
+	  [ var = TypeVariables() { vt.typeVars = var; } ]
+	  ("[" { lab = defaultLabel; } ( lab = Label() )? number = BIExpression() 
+	  		{ dim.add(number); labs.add(lab); } 
+	  	"]")*
+	  {
+	  	for (int i = dim.size() - 1; i>=0; --i) {
+	  		ASTExpression num = dim.get(i);
+	  		ASTLabel l = labs.get(i);
+	  		ASTType tmp = new ASTArrayType(type, num, l);
+	  		tmp.setBeginPosition(type.beginPosition);
+	  		tmp.setEndPosition(token.endLine, token.endColumn);
+	  		type = tmp;
+	  	}
+	  	return type;
+	  }
+}
+
+void FunctionDefinition() :
+{
+	boolean isDummy = false;
+	ASTType retType;
+	ASTType baseType = null;
+	Token v, v1, v2;
+	String name;
+	List<Pair<ASTType, String>> inputs = new ArrayList<Pair<ASTType, String>>();
+	Pair<ASTType, String> arg;
+	ASTType ty;
+	List<ASTStatement> stmt;
+	List<ASTVariableType> typeVariables = new ArrayList<ASTVariableType>();
+	List<ASTType> var1 = null, var2;
+	
+	List<String> bitParameter = new ArrayList<String>();
+	
+	String nativeName;
+	boolean affine = false;
+	
+	ASTVariableType at;
+}
+{
+	(<PHANTOM> { isDummy = true; })?
+	
+	( <VOID> { retType = ASTVoidType.get(); }
+	 | retType = Type(ASTLabel.Secure)
+	)
+		[ LOOKAHEAD(10) baseType = Type(ASTLabel.Secure) "." ]
+		v = <IDENTIFIER> { name = v.image; }
+		( "@" v = <IDENTIFIER> { bitParameter.add(v.image); } )*
+		[ "<" { affine = false; } [<AFFINE> {affine = true;}] v = <IDENTIFIER> 
+			{
+				at = new ASTVariableType(v.image, affine);
+				at.setBeginPosition(v.beginLine, v.beginColumn);
+				at.setEndPosition(v.endLine, v.endColumn);  
+				typeVariables.add(at); 
+			} 
+			("," { affine = false; } [<AFFINE> {affine = true;}] v = <IDENTIFIER> 
+				{ 
+					at = new ASTVariableType(v.image, affine);
+					at.setBeginPosition(v.beginLine, v.beginColumn);
+					at.setEndPosition(v.endLine, v.endColumn);  
+					typeVariables.add(at); 
+				} 
+			)* ">" ]
+		"(" 
+			[ 
+				arg = Argument() { inputs.add(arg); }	
+				(
+					"," arg = Argument() { inputs.add(arg); }
+				)* 
+			]
+		")"
+	(
+		"=" <NATIVE> v = <IDENTIFIER> { nativeName = v.image; } ("." v = <IDENTIFIER> { nativeName += "." + v.image; } )*
+		{
+			ASTFunctionNative nfunc = 
+				new ASTFunctionNative(isDummy, name, retType, baseType, typeVariables, inputs);
+			nfunc.nativeName = nativeName;
+			program.functionDef.add(nfunc);
+		} ";"
+		| "{" 
+		{
+			ASTFunctionDef dfunc =
+				new ASTFunctionDef(isDummy, name, retType, baseType,
+					bitParameter, 
+					typeVariables, inputs);
+		}
+		stmt = Statements(dfunc) "}"
+		{
+			dfunc.body = stmt;
+			program.functionDef.add(dfunc);
+		} 
+	) 
+}
+
+Pair<ASTType, String> Argument() :
+{
+	ASTType ty;
+	ASTFunctionType fty;
+	Token v;
+	List<ASTType> tyVar = null;
+}
+{
+	ty = Type(ASTLabel.Secure) v = <IDENTIFIER>
+	[ [ tyVar = TypeVariablesInExp() ] "(" 
+		{ 
+			fty = new ASTFunctionType(ty, v.image, false);
+			fty.setBeginPosition(ty.beginPosition); 
+		}
+		 [ ty = Type(ASTLabel.Secure) { fty.inputTypes.add(ty); }
+		 	("," ty = Type(ASTLabel.Secure) { fty.inputTypes.add(ty); } )*
+		 ]
+	")" { 
+			fty.setEndPosition(token.endLine, token.endColumn); 
+			ty = fty; 
+			fty.typeParameter = tyVar; 
+		} 
+	]
+	{ 
+		return new Pair<ASTType, String>(ty, v.image); 
+	}
+}
+
+List<ASTStatement> Statements(ASTFunctionDef func) :
+{
+	List<ASTStatement> stmt = new ArrayList<ASTStatement>();
+	List<ASTStatement> tmps; 
+}
+{
+	(
+		tmps = Statement(func) { stmt.addAll(tmps); }
+	)*
+	{ return stmt; }
+}
+
+List<ASTStatement> Statement(ASTFunctionDef func) : 
+{
+	List<ASTStatement> stmt = new ArrayList<ASTStatement>();
+	List<ASTStatement> init;
+	List<ASTStatement> incre, tmp;
+	ASTType ty;
+	Token v;
+	ASTExpression exp;
+	ASTExpression var, bound;
+	ASTPredicate cond; 
+	ASTIfStatement ifStmt;
+	ASTWhileStatement whileStmt;
+	ASTBoundedWhileStatement bLoopStmt;
+	ASTOnDummyStatement onDummyStmt;
+	Condition dumCond;
+	String alias;
+}
+{
+	(
+		 LOOKAHEAD(10) ty = Type(ASTLabel.Secure) 
+		 v = <IDENTIFIER> 
+		 {
+		 	func.localVariables.add(new Pair<ASTType, String>(ty, v.image)); 
+		 } 
+		 [
+		 	"=" exp = BIExpression() 
+		 	{
+		 		ASTStatement st = new ASTAssignStatement(new ASTVariableExpression(v), exp);
+		 		st.setBeginPosition(v.beginLine, v.beginColumn);
+		 		st.setEndPosition(exp.endPosition);  
+		 		stmt.add(st); 
+		 	} 
+		 ]
+		 ("," v = <IDENTIFIER> 
+		 	{
+		 		func.localVariables.add(new Pair<ASTType, String>(ty, v.image)); 
+		 	} 
+		 	[
+		 		"=" exp = BIExpression() 
+		 		{ 
+			 		ASTStatement st = new ASTAssignStatement(new ASTVariableExpression(v), exp);
+			 		st.setBeginPosition(v.beginLine, v.beginColumn);
+			 		st.setEndPosition(exp.endPosition);  
+			 		stmt.add(st); 
+		 		} 
+		 	]
+		 )* ";"
+		| var = Expression() { exp = null; } 
+			[ "=" exp = Expression() ] ";" 
+			{
+				if(exp != null) {
+					stmt.add(new ASTAssignStatement(var, exp));
+				} else {
+					if (!(var instanceof ASTFuncExpression)) 
+						throw new RuntimeException("Function call required!");
+					else
+						stmt.add(new ASTFuncStatement((ASTFuncExpression)var));
+				}
+			} 
+		| <IF> "(" cond = Predicate() ")" { ifStmt = new ASTIfStatement(cond); } 
+			ifStmt.trueBranch = Statement(func) [ LOOKAHEAD(2) <ELSE> ifStmt.falseBranch = Statement(func) ]
+			{ stmt.add(ifStmt); }
+		| <WHILE> "(" cond = Predicate() ")" { whileStmt = new ASTWhileStatement(cond); } 
+			whileStmt.body = Statement(func)
+			{ stmt.add(whileStmt); }
+		| <BWHILE> "(" bound = RangeExpression() ")" "(" cond = Predicate() ")" { bLoopStmt = new ASTBoundedWhileStatement(cond, bound); } 
+			bLoopStmt.body = Statement(func)
+			{ stmt.add(bLoopStmt); }
+		| <FOR> "(" init = Statement(func) cond = Predicate() ";"
+			{ incre = new ArrayList<ASTStatement>(); } 
+			var = Expression() "=" exp = Expression()
+			{ incre.add(new ASTAssignStatement(var, exp)); }
+			")" 
+			{ 
+				stmt.addAll(init); 
+				whileStmt = new ASTWhileStatement(cond); 
+			} 
+			whileStmt.body = Statement(func)
+			{
+				whileStmt.body.addAll(incre);
+				stmt.add(whileStmt); 
+			}
+		| <BFOR> "(" bound = RangeExpression() ")" "(" init = Statement(func) cond = Predicate() ";"
+			{ incre = new ArrayList<ASTStatement>(); } 
+			[ var = Expression() "=" exp = Expression()
+			{ incre.add(new ASTAssignStatement(var, exp)); } ]
+			")" 
+			{ 
+				stmt.addAll(init); 
+				bLoopStmt = new ASTBoundedWhileStatement(cond, bound); 
+			} 
+			bLoopStmt.body = Statement(func)
+			{
+				bLoopStmt.body.addAll(incre);
+				stmt.add(bLoopStmt); 
+			}
+		| <RETURN> exp = Expression() ";" { stmt.add(new ASTReturnStatement(exp)); }
+		| "{" stmt = Statements(func) "}"
+		| ( <ONREAL> { dumCond = Condition.OnReal; } | <ONDUMMY> { dumCond = Condition.OnDummy; } )
+			{ onDummyStmt = new ASTOnDummyStatement(dumCond); } 
+			"(" { alias = null; } [ LOOKAHEAD(2) v = <IDENTIFIER> "=" { alias = v.image; } ]
+				exp = BIExpression() { onDummyStmt.condList.add(new Pair<String, ASTExpression>(alias, exp)); }
+				(","
+					{ alias = null; } [ LOOKAHEAD(2) v = <IDENTIFIER> "=" { alias = v.image; } ]
+					exp = BIExpression() { 
+						onDummyStmt.condList.add(new Pair<String, ASTExpression>(alias, exp)); 
+					}
+				)*
+			")" "{"
+				onDummyStmt.body = Statements(func)
+			"}" { stmt.add(onDummyStmt); }
+		| <USING> { ASTUsingStatement ustmt = new ASTUsingStatement(); } 
+			"(" v = <IDENTIFIER> "=" exp = AtomicExpression() { ustmt.use.add(new Pair<String, ASTExpression>(v.image, exp)); }
+			   ("," v = <IDENTIFIER> "=" exp = AtomicExpression() { ustmt.use.add(new Pair<String, ASTExpression>(v.image, exp)); })*
+			")" "{"
+				ustmt.body = Statements(func)
+			"}" { stmt.add(ustmt); }
+	)
+	{ return stmt; }
+}
+
+ASTExpression Expression() : 
+{
+	ASTExpression e, e2;
+}
+{
+	e = BIExpression() ("," e2 = BIExpression() 
+	{ 
+		if (!(e instanceof ASTTupleExpression)) {
+			e = new ASTTupleExpression(e, e2);
+		} else {
+			((ASTTupleExpression)e).exps.add(e2);
+		}
+	})*
+	{ return e; }
+}
+
+ASTExpression BIExpression() : 
+{
+	ASTExpression e;
+	ASTExpression n;
+}
+{
+	e = ShiftExpression() 
+		(
+			"&" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.AND, n); }
+			| "|" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.OR, n); }
+			| "^" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.XOR, n); }
+		)* { return e; }
+}
+
+ASTExpression ShiftExpression() : 
+{
+	ASTExpression e;
+	ASTExpression n;
+}
+{
+	e = AdditiveExpression() 
+		(
+			"<<" n = AdditiveExpression() 
+			{ 
+				e = new ASTBinaryExpression(e, BOP.SHL, n); 
+			}
+			| 
+			">>" n = AdditiveExpression()
+			{ 
+				e = new ASTBinaryExpression(e, BOP.SHR, n); 
+			}
+		)* { return e; }
+}
+
+
+ASTExpression RangeExpression() :
+{
+	ASTExpression e;
+	ASTExpression n;
+}
+{
+	e = RangeShiftExpression()
+	(
+		"&" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.AND, n); }
+		| "|" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.OR, n); }
+		| "^" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.XOR, n); }
+	)* { return e; }
+}
+
+ASTExpression RangeShiftExpression() : 
+{
+	ASTExpression e;
+	ASTExpression n;
+}
+{
+	e = RangeAdditiveExpression() 
+		(
+			"<<" n = RangeAdditiveExpression() 
+			{ 
+				e = new ASTBinaryExpression(e, BOP.SHL, n); 
+			}
+			| 
+			">>" n = RangeAdditiveExpression()
+			{ 
+				e = new ASTBinaryExpression(e, BOP.SHR, n); 
+			}
+		)* { return e; }
+}
+
+ASTExpression ConstantExpression() : 
+{
+	int n;
+	double v;
+}
+{
+	n = Constant() { return new ASTConstantExpression(n); }
+	| v = FloatConstant() { return new ASTFloatConstantExpression(v); }
+}
+
+ASTExpression VariableExpression() : 
+{
+	Token v;
+}
+{
+	v = <IDENTIFIER> 
+	{ 
+		if (def.containsKey(v.image))
+			return def.get(v.image);
+		else
+			return new ASTVariableExpression(v.image); }
+	|
+	<LOG>
+	{
+		return new ASTVariableExpression("log");
+	}
+}
+
+ASTExpression AdditiveExpression() : 
+{
+	ASTExpression e1, e2;
+}
+{
+	e1 = MultiplictiveExpression() 
+	( "+" e2 = MultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.ADD, e2); } 
+	| "-" e2 = MultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); } )*
+	{
+		return e1;
+	}
+} 
+
+
+ASTExpression RangeAdditiveExpression() : 
+{
+	ASTExpression e1, e2;
+}
+{
+	e1 = RangeMultiplictiveExpression() 
+	( "+" e2 = RangeMultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.ADD, e2); } 
+	| "-" e2 = RangeMultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); } )*
+	{
+		return e1;
+	}
+} 
+
+
+ASTExpression MultiplictiveExpression() : 
+{
+	ASTExpression e1, e2;
+}
+{
+	e1 = AtomicExpression() 
+	( "*" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); } 
+	| "/" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); } 
+	| "%" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); } )*
+	{
+		return e1;
+	}
+}
+
+ASTExpression RangeMultiplictiveExpression() : 
+{
+	ASTExpression e1, e2;
+}
+{
+	e1 = RangeAtomicExpression() 
+	( "*" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); } 
+	| "/" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); } 
+	| "%" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); } )*
+	{
+		return e1;
+	}
+}
+
+ASTPredicate Predicate() : 
+{
+	ASTPredicate e;
+}
+{
+	e = OrPredicate() { return e; }
+}
+
+ASTPredicate OrPredicate() : 
+{
+	ASTPredicate e1, e2 = null;
+}
+{
+	e1 = AndPredicate() ( LOOKAHEAD(2) "||" e2 = OrPredicate() 
+	{
+		if(e2 != null)
+			e1 = new ASTOrPredicate(e1, e2); 
+	} ) *
+	{
+		return e1;
+	}
+}
+
+
+ASTPredicate AndPredicate() : 
+{
+	ASTPredicate e1, e2 = null;
+}
+{
+	e1 = AtomicPredicate() ( LOOKAHEAD(2) "&&" e2 = AndPredicate() 
+	{
+		if(e2 != null)
+			e1 = new ASTAndPredicate(e1, e2); 
+	} )*
+	{ return e1; }
+}
+
+ASTPredicate AtomicPredicate() : 
+{
+	ASTPredicate p;
+	ASTExpression e;
+	boolean not = false;
+}
+{
+	LOOKAHEAD(3) p = BinaryPredicate() { return p; }
+	| "(" p = Predicate() ")" { return p; }
+}
+
+ASTPredicate BinaryPredicate() :
+{
+	ASTExpression e1, e2;
+	REL_OP op;
+}
+{
+	e1 = BIExpression()
+	( "==" { op = REL_OP.EQ; }
+		e2 = BIExpression() 
+	| "!=" { op = REL_OP.NEQ; }
+		e2 = BIExpression() 
+	| ">" { op = REL_OP.GT; }
+		e2 = BIExpression() 
+	| ">=" { op = REL_OP.GET; }
+		e2 = BIExpression() 
+	| "<" { op = REL_OP.LT; }
+		e2 = BIExpression() 
+	| "<=" { op = REL_OP.LET; }
+		e2 = BIExpression() 
+	) 
+	{ return new ASTBinaryPredicate(e1, op, e2); }
+}
