@@ -21,7 +21,7 @@ Compile
 
 In Linux:
 
-  $ ./compile.sh
+    $ ./compile.sh
 
 --------------------------------------------------------------------------------
 Run the hamming distance example (examples/hamming)
