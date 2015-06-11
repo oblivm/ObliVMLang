@@ -28,11 +28,11 @@ Run the hamming distance example (examples/hamming)
 --------------------------------------------------------------------------------
 Compile the example:
 
-  $ ./run-compiler.sh examples/hamming/hamming.lcc
+    $ ./run-compiler.sh examples/hamming/hamming.lcc
 
 Run the real secure computation:
 
-  $ ./runtogether.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
+    $ ./runtogether.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
 
 --------------------------------------------------------------------------------
 References
