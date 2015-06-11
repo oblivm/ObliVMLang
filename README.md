@@ -6,7 +6,14 @@
 Author
 --------------------------------------------------------------------------------
 
-The ObliVM compiler is developed and currently maintained by [Chang Liu]. The source code will be released soon. 
+The ObliVM compiler is developed and currently maintained by [Chang Liu].
+
+
+--------------------------------------------------------------------------------
+Disclaimer
+--------------------------------------------------------------------------------
+
+The code is a research-quality proof of concept, and is still under development for more features and bug-fixing.
 
 --------------------------------------------------------------------------------
 Compile
@@ -14,18 +21,18 @@ Compile
 
 In Linux:
 
-./compile.sh
+  $ ./compile.sh
 
 --------------------------------------------------------------------------------
 Run the hamming distance example (examples/hamming)
 --------------------------------------------------------------------------------
 Compile the example:
 
-./run-compiler.sh examples/hamming/hamming.lcc
+  $ ./run-compiler.sh examples/hamming/hamming.lcc
 
 Run the real secure computation:
 
-./runtogether.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
+  $ ./runtogether.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
 
 --------------------------------------------------------------------------------
 References
