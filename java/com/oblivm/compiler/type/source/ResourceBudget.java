@@ -42,8 +42,11 @@ public class ResourceBudget {
 	public ResourceBudget join(ResourceBudget a) {
 		Map<String, Integer> budget = new HashMap<String, Integer>();
 		for(Map.Entry<String, Integer> entry : budgets.entrySet()) {
-			if(a.budgets.containsKey(entry.getKey()))
-				budget.put(entry.getKey(), Integer.min(entry.getValue(), a.budgets.get(entry.getKey())));
+			if(a.budgets.containsKey(entry.getKey())) {
+			    int ax = entry.getValue();
+			    int ay = a.budgets.get(entry.getKey());
+				budget.put(entry.getKey(), ax < ay ? ax : ay);
+			}
 		}
 		return new ResourceBudget(budget);
 	}

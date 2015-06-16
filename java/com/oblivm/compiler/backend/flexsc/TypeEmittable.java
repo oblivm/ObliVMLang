@@ -46,8 +46,14 @@ public class TypeEmittable extends Emittable {
 		if(this.inheritWritable(type)) {
 			this.implementInterfaces.add("IWritable<"+codeGen.visit(type)+", "+codeGen.dataType+">");
 		}
-		if(type.name.equals("NoClass") && type.getMethods().stream().anyMatch((m) -> m.name.equals("main"))) {
-			this.implementInterfaces.add("ISecureRunnable<"+codeGen.dataType+">");
+		type.getMethods().contains("main");
+		if(type.name.equals("NoClass")) {
+		    for(Method meth : type.getMethods()) {
+		      if(meth.name.equals("main")) {
+		        this.implementInterfaces.add("ISecureRunnable<"+codeGen.dataType+">");
+		        break;
+		      }
+		    }
 		}
 	}
 
