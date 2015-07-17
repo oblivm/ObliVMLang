@@ -325,15 +325,23 @@ public class BitInferenceEngine  extends DefaultStatementExpressionVisitor<Void,
 			pushDown(binaryPredicate.left, new ASTConstantExpression(32));
 			pushDown(binaryPredicate.right, new ASTConstantExpression(32));
 		} else {
-			// TODO handle this correctly
-//			if (left != null && right != null && !left.equals(right))
-//				throw new RuntimeException("Bits doesn't match! "+left+"\t"+right);
-			if(left != null) {
-				pushDown(binaryPredicate.right, left);
-			}
-			if(right != null) {
-				pushDown(binaryPredicate.left, right);
-				left = right;
+			if (left != null && right != null && !left.equals(right)) {
+				// TODO handle this correctly
+				if((right instanceof ASTConstantExpression) && ((ASTConstantExpression)right).value == 32) {
+					pushDown(binaryPredicate.right, left);
+				} else if((left instanceof ASTConstantExpression) && ((ASTConstantExpression)left).value == 32) {
+					pushDown(binaryPredicate.left, right);
+					left = right;
+				} else
+					throw new RuntimeException("Bits doesn't match! "+left+"\t"+right);
+			} else {
+				if(left != null) {
+					pushDown(binaryPredicate.right, left);
+				}
+				if(right != null) {
+					pushDown(binaryPredicate.left, right);
+					left = right;
+				}
 			}
 		}
 		this.current = ASTIntType.get(1, ASTLabel.Secure);

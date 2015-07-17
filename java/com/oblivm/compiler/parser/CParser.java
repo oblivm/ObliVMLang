@@ -137,6 +137,7 @@ public class CParser implements CParserConstants {
                         ret = new ASTNullExpression();
                         ret.setBeginPosition(tok.beginLine, tok.beginColumn);
                         ret.setEndPosition(tok.endLine, tok.endColumn);
+                        {if (true) return ret;}
       break;
     case INTEGER_LITERAL:
     case FLOATING_POINT_LITERAL:
@@ -2376,12 +2377,6 @@ public class CParser implements CParserConstants {
     finally { jj_save(15, xla); }
   }
 
-  private boolean jj_3R_76() {
-    if (jj_scan_token(66)) return true;
-    if (jj_3R_40()) return true;
-    return false;
-  }
-
   private boolean jj_3R_75() {
     if (jj_scan_token(82)) return true;
     if (jj_3R_40()) return true;
@@ -3097,6 +3092,17 @@ public class CParser implements CParserConstants {
     return false;
   }
 
+  private boolean jj_3R_133() {
+    if (jj_scan_token(IDENTIFIER)) return true;
+    return false;
+  }
+
+  private boolean jj_3R_121() {
+    if (jj_scan_token(72)) return true;
+    if (jj_3R_79()) return true;
+    return false;
+  }
+
   private boolean jj_3R_104() {
     Token xsp;
     xsp = jj_scanpos;
@@ -3115,17 +3121,6 @@ public class CParser implements CParserConstants {
 
   private boolean jj_3R_125() {
     if (jj_scan_token(NULL)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_133() {
-    if (jj_scan_token(IDENTIFIER)) return true;
-    return false;
-  }
-
-  private boolean jj_3R_121() {
-    if (jj_scan_token(72)) return true;
-    if (jj_3R_79()) return true;
     return false;
   }
 
@@ -3199,11 +3194,6 @@ public class CParser implements CParserConstants {
     return false;
   }
 
-  private boolean jj_3R_123() {
-    if (jj_scan_token(IDENTIFIER)) return true;
-    return false;
-  }
-
   private boolean jj_3R_106() {
     if (jj_scan_token(56)) return true;
     Token xsp;
@@ -3221,10 +3211,8 @@ public class CParser implements CParserConstants {
     return false;
   }
 
-  private boolean jj_3_1() {
-    if (jj_scan_token(51)) return true;
-    if (jj_3R_36()) return true;
-    if (jj_scan_token(52)) return true;
+  private boolean jj_3R_123() {
+    if (jj_scan_token(IDENTIFIER)) return true;
     return false;
   }
 
@@ -3235,6 +3223,13 @@ public class CParser implements CParserConstants {
       xsp = jj_scanpos;
       if (jj_3R_99()) { jj_scanpos = xsp; break; }
     }
+    return false;
+  }
+
+  private boolean jj_3_1() {
+    if (jj_scan_token(51)) return true;
+    if (jj_3R_36()) return true;
+    if (jj_scan_token(52)) return true;
     return false;
   }
 
@@ -3600,6 +3595,12 @@ public class CParser implements CParserConstants {
 
   private boolean jj_3R_77() {
     if (jj_scan_token(83)) return true;
+    if (jj_3R_40()) return true;
+    return false;
+  }
+
+  private boolean jj_3R_76() {
+    if (jj_scan_token(66)) return true;
     if (jj_3R_40()) return true;
     return false;
   }

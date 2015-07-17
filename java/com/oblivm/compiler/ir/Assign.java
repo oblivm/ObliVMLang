@@ -10,11 +10,17 @@ public class Assign extends IRCode {
 	public Label lab;
 	public Variable name;
 	public Expression exp;
+	public boolean toDum;
 	
-	public Assign(Label lab, Variable name, Expression exp) {
+	public Assign(Label lab, Variable name, Expression exp, boolean toDum) {
 		this.lab = lab;
 		this.name = name;
 		this.exp = exp;
+		this.toDum = toDum;
+	}
+	
+	public Assign(Label lab, Variable name, Expression exp) {
+		this(lab, name, exp, false);
 	}
 	
 	@Override

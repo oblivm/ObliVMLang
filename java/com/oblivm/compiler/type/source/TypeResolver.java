@@ -418,8 +418,11 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 				if(func.localVariables.get(i).right.equals(func.localVariables.get(j).right))
 					a = false;
 			if(a) {
+				boolean oldCopy = this.copy;
+				this.copy = true;
 				Pair<ASTType, String> pp = func.localVariables.get(i);
 				localVariables.add(new Pair<ASTType, String>(visit(pp.left), pp.right));
+				this.copy = oldCopy;
 			}
 		}
 		func.localVariables = localVariables;

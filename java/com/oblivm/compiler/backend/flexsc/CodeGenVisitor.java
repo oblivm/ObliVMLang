@@ -316,7 +316,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				ret += "intLib.mux("+v2+", "+v1+","+exp.b.name+")";
 			} else if (type instanceof NullType || type instanceof DummyType) {
 				// TODO deal with null type
-				ret = exp.x1.name + ".mux("+exp.b.name+", "+exp.x1.name+")";
+				ret = exp.x1.name + ".mux("+exp.b.name+", "+exp.x2.name+")";
 				sb = new StringBuffer();
 //				DummyType dt = (DummyType)type;
 //				String bits = "f_tmp_"+(this.tmpId++);
@@ -544,7 +544,11 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			System.out.println("Wrong here.");
 		}
 		StringBuffer sb = new StringBuffer();
-		if(assign.name.toHaveType && assign.withTypeDef) {
+		if(assign.toDum) {
+			Pair<String, String> tmp = visit(assign.exp);
+			sb.append(tmp.right);
+			sb.append(tmp.left);
+		} else if(assign.name.toHaveType && assign.withTypeDef) {
 			if(this.currentType != VoidType.get()) {
 				if(assign.lab != Label.Pub && assign.exp.getLabels() == Label.Pub) {
 					Pair<String, String> tmp = visit(assign.exp);
@@ -604,6 +608,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 						else
 							sb.append(assign.name.name+" = env.inputOfAlice(Utils.fromInt("+tmp.left+", "+assign.name.type.getBits()+"));\n");
 					} else {
+						// TODO problem here
 						sb.append(assign.name.name+" = floatLib.inputOfAlice("+tmp.left+");\n");
 					}
 				} else {
@@ -699,14 +704,14 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 	public Pair<String, String> visit(FuncCallExp exp) {
 		StringBuffer precomputing = new StringBuffer();
 		StringBuffer sb = new StringBuffer();
-		String ret = "f_tmp_"+(this.tmpId++);
-		String ty = visit(exp.type);
+//		String ret = "f_tmp_"+(this.tmpId++);
+//		String ty = visit(exp.type);
 		sb.append(indent(indent));
 		String base = "noclass";
 		if(exp.base != null)
 			base = exp.base.name;
-		if(exp.type != VoidType.get())
-			sb.append(ty+" "+ret+" = ");
+//		if(exp.type != VoidType.get())
+//			sb.append(ty+" "+ret+" = ");
 		if(exp.isNative) {
 			if(exp.type instanceof VariableType) {
 				sb.append("factory"+((VariableType)exp.type).name+".newObj(");
@@ -770,7 +775,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			}
 		}
 		sb.append(";\n");
-		return new Pair<String, String>(ret, precomputing.toString()+sb.toString()); 
+		return new Pair<String, String>(sb.toString(), precomputing.toString()); 
 	}
 
 	@Override
@@ -925,6 +930,18 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		return type.nativeName+"<"+dataType+">";
 	}
 
+	public String getBoxedTypeSig(Type type) {
+		if(type instanceof IntType) {
+			return "BoxedInt<"+dataType+">";
+		} else if(type instanceof FloatType) {
+			return "BoxedFloat<"+dataType+">";
+		} else if(type instanceof RndType) {
+			return "BoxedRnd<"+dataType+">";
+		} else {
+			return visit(type);
+		}
+	}
+	
 	public String visit(RecordType type) {
 		String name = type.name;
 		if(Config.useTemplate) {
@@ -933,7 +950,8 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				boolean f = true;
 				for(int i=0; i<type.typeParameter.size(); ++i){
 					name+=", ";
-					name+=visit(type.typeParameter.get(i));
+					Type ty = type.typeParameter.get(i);
+					name+=getBoxedTypeSig(ty);
 				}
 				name+=">";
 			} else
@@ -945,7 +963,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				for(int i=0; i<type.typeParameter.size(); ++i){
 					if(f) f = false;
 					else name+=", ";
-					name+=visit(type.typeParameter.get(i));
+					name+=getBoxedTypeSig(type.typeParameter.get(i));
 				}
 				name+=">";
 			}
@@ -995,17 +1013,22 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 
 	public boolean isDefine = false;
 
+	public String boxedConstructor(Type type) {
+		String con = constructor(type);
+		if(type instanceof IntType)
+			con = "new BoxedInt<@dataType>(env, "+con+")";
+		if(type instanceof RndType)
+			con = "new BoxedRnd<@dataType>(env, "+con+")";
+		if(type instanceof FloatType)
+			con = "new BoxedFloat<@dataType>(env, "+con+")";
+		con = con.replaceAll("@dataType", dataType);
+		return con;
+	}
+	
 	public String constructor(Type type) {
 		if(type instanceof DummyType) {
 			DummyType dt = (DummyType)type;
-			String con = constructor(dt.type);
-			if(dt.type instanceof IntType)
-				con = "new BoxedInt<@dataType>(env, "+con+")";
-			if(dt.type instanceof RndType)
-				con = "new BoxedRnd<@dataType>(env, "+con+")";
-			if(dt.type instanceof FloatType)
-				con = "new BoxedFloat<@dataType>(env, "+con+")";
-			con = con.replaceAll("@dataType", dataType);
+			String con = boxedConstructor(dt.type);
 			return "new NullableType<"+dataType+", "+targetName(dt.type)+">(env, "+con+", env.inputOfAlice(false))";
 		} else if(type instanceof IntType) {
 			IntType it = (IntType)type;
@@ -1050,7 +1073,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			return "new "+this.constructor((RecordType)type, false);
 		} else if (type instanceof VariableType) {
 			String name = ((VariableType)type).name;
-			return "factory"+name+".newObj(null)";
+			return "factory"+name+".newObj(factory"+name+".getBits())";
 		} else if (type instanceof ArrayType) {
 			ArrayType at = (ArrayType)type;
 			if(at.indexLab.lab == Label.Pub) {
@@ -1175,6 +1198,21 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 					sb.append(", ");
 					if(withDef) sb.append(vt.name+" ");
 					sb.append("factory"+vt.name);
+				} else if(tt instanceof IntType) {
+					IntType it = (IntType)tt;
+					if(withDef) sb.append("BoxedInt<"+dataType+"> ");
+					sb.append(", ");
+					sb.append(this.boxedConstructor(it));
+				} else if(tt instanceof FloatType) {
+					FloatType ft = (FloatType)tt;
+					if(withDef) sb.append("BoxedFloat<"+dataType+"> ");
+					sb.append(", ");
+					sb.append(this.boxedConstructor(ft));
+				} else if(tt instanceof RndType) {
+					RndType rt = (RndType)tt;
+					if(withDef) sb.append("BoxedRnd<"+dataType+"> ");
+					sb.append(", ");
+					sb.append(this.boxedConstructor(rt));
 				} else {
 					RecordType rt = (RecordType)tt;
 					if(withDef) 
@@ -1429,11 +1467,11 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 	@Override
 	public String visit(UsingBlock ret) {
 		StringBuffer sb = new StringBuffer();
-		sb.append(indent(indent) + "{");
+		sb.append(indent(indent) + "{\n");
 		indent ++;
 		sb.append(visit(ret.code));
 		indent --;
-		sb.append(indent(indent) + "}");
+		sb.append(indent(indent) + "}\n");
 		return sb.toString();
 	}
 

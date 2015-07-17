@@ -192,7 +192,7 @@ public class NullableRewriter extends DefaultStatementExpressionVisitor<ASTState
 	@Override
 	public Pair<ASTExpression, List<ASTType>> visit(ASTAndPredicate andPredicate) {
 		Pair<ASTExpression, List<ASTType>> left = visit(andPredicate.left);
-		Pair<ASTExpression, List<ASTType>> right = visit(andPredicate.left);
+		Pair<ASTExpression, List<ASTType>> right = visit(andPredicate.right);
 		andPredicate.left = (ASTPredicate) left.left;
 		andPredicate.right = (ASTPredicate) right.left;
 		return new Pair<ASTExpression, List<ASTType>>(andPredicate, left.right);

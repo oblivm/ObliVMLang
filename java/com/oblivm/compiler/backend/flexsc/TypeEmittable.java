@@ -6,6 +6,7 @@ package com.oblivm.compiler.backend.flexsc;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Map;
 
 import com.oblivm.compiler.ir.BopExp.Op;
@@ -173,6 +174,39 @@ public class TypeEmittable extends Emittable {
 				if(cons == null)
 					continue;
 				out.println("\t\tthis."+ent.getKey()+" = "+cons+";");
+				if(ent.getValue() instanceof ArrayType) {
+					ArrayType at = (ArrayType)ent.getValue();
+					if(at.indexLab.lab != Label.Pub)
+						continue;
+					ArrayList<VariableConstant> list = new ArrayList<VariableConstant>();
+					list.add(at.size);
+					Type ty = at.type;
+					while(ty instanceof ArrayType) {
+						at = (ArrayType)ty;
+						if(at.indexLab.lab != Label.Pub)
+							break;
+						list.add(at.size);
+						ty = at.type;
+					}
+					String tab = "\t\t";
+					cons = codeGen.constructor(ty);
+					for(int i=0; i<list.size(); ++i) {
+						String var = "__haha_i"+i;
+						out.println(tab+"for(int "+var+"=0; "+var+" < " + list.get(i).toString() + "; ++"+var+") {");
+						tab += "\t";
+					}
+					out.print(tab+"this."+ent.getKey());
+					for(int i=0; i<list.size(); ++i) {
+						String var = "__haha_i"+i;
+						out.print("["+var+"]");
+					}
+					out.println(" = "+cons+";");
+					tab = tab.substring(0, tab.length() - 1);
+					for(int i=0; i<list.size(); ++i) {
+						out.println(tab + "}");
+						tab = tab.substring(0, tab.length() - 1);
+					}
+				}
 			}
 		}
 		out.println("\t}");
@@ -252,7 +286,7 @@ public class TypeEmittable extends Emittable {
 					suffix += "[%i]".replaceAll("%i", "i"+now);
 				}
 				out.println(prefix + "{");
-				out.println(prefix + "\ttmp_b = "+ent.getKey()+suffix+".getBits();");
+				out.println(prefix + "\ttmp_b = "+ent.getKey()+suffix+(!(at.type instanceof RecordType) ? ";" : ".getBits();"));
 				out.println(prefix + "\tSystem.arraycopy(tmp_b, 0, ret, now, tmp_b.length);");
 				out.println(prefix + "\tnow += tmp_b.length;");
 				out.println(prefix + "}");

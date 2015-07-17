@@ -198,7 +198,8 @@ ASTExpression AtomicExpression() :
 	tok = <NULL> { 
 			ret = new ASTNullExpression();
 			ret.setBeginPosition(tok.beginLine, tok.beginColumn);
-			ret.setEndPosition(tok.endLine, tok.endColumn);  
+			ret.setEndPosition(tok.endLine, tok.endColumn);
+			return ret;  
 		}
 	| e = ConstantExpression() { return e; }
 	| LOOKAHEAD(2) "(" e = BIExpression() ")" { return e; }

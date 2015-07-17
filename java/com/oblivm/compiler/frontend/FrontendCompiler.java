@@ -512,8 +512,17 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	@Override
 	public IRCode visit(ASTFuncStatement funcStatement) {
+		//TODO this is ugly, need to change later
 		Pair<List<Variable>, IRCode> value = visit(funcStatement.func);
-		return value.right;
+		IRCode ret = value.right;
+		if(ret instanceof Seq) {
+			Assign tmp = (Assign)((Seq)ret).s2;
+			tmp.toDum = true;
+		} else {
+			Assign tmp = (Assign)ret;
+			tmp.toDum = true;
+		}
+		return ret;
 	}
 
 	@Override
@@ -609,7 +618,13 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 			ASTGetValueExpression as = (ASTGetValueExpression)exp;
 			return visit(as);
 		}
-
+		
+		if(exp instanceof ASTVariableExpression) {
+			ASTVariableExpression t = (ASTVariableExpression)exp;
+			if(t.var.equals("b")) {
+				System.out.println("Here");
+			}
+		}
 		Pair<List<Variable>, IRCode> pair = super.visit(exp);
 		if(exp.targetBits == null 
 				|| this.constructConstant(exp.targetBits).equals(pair.left.get(0).getBits())
@@ -804,6 +819,7 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	@Override
 	public Pair<List<Variable>, IRCode> visit(ASTFuncExpression funcExpression) {
+		System.out.println(funcExpression);
 		IRCode code = new Skip();
 		List<Variable> input = new ArrayList<Variable>();
 		int j = 0;
@@ -1150,11 +1166,14 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	@Override
 	public IRCode visit(ASTUsingStatement stmt) {
+		Map<String, Variable> old = this.variableValues;
+		this.variableValues = new HashMap<String, Variable>(old);
 		IRCode code = new Skip();
 		for(Pair<String, ASTExpression> ent : stmt.use) {
 			Pair<List<Variable>, IRCode> res = visit(ent.right);
 			Type ty = visit(ent.right.type);
 			Variable var = new Variable(ty, ty.getLabel(), ent.left, true);
+			this.variableValues.put(ent.left, new Variable(ty, ty.getLabel(), ent.left, false));
 			code = Seq.seq(code, res.right);
 			code = Seq.seq(code, new Assign(var.lab, var, new VarExp(res.left.get(0))));
 		}
@@ -1165,6 +1184,7 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 			ASTAssignStatement as = new ASTAssignStatement(ent.right, new ASTVariableExpression(ent.left));
 			code = Seq.seq(code, visit(as));
 		}
+		this.variableValues = old;
 		return new UsingBlock(code);
 	}
 
