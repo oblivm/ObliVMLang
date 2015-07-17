@@ -15,6 +15,14 @@ Disclaimer
 
 The code is a research-quality proof of concept, and is still under development for more features and bug-fixing.
 
+
+--------------------------------------------------------------------------------
+Disclaimer
+--------------------------------------------------------------------------------
+
+Oracle Java 8
+JavaCC 5.0 (to compile C.jj under the parser folder only)
+
 --------------------------------------------------------------------------------
 Compile
 --------------------------------------------------------------------------------
