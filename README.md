@@ -31,6 +31,10 @@ In Linux:
 
     $ ./compile.sh
 
+In Cygwin
+
+    $ ./compile_cygwin.sh
+
 --------------------------------------------------------------------------------
 Run the hamming distance example (examples/hamming)
 --------------------------------------------------------------------------------
@@ -38,9 +42,17 @@ Compile the example:
 
     $ ./run-compiler.sh examples/hamming/hamming.lcc
 
+In Cygwin
+
+    $ ./run-compiler_cygwin.sh examples/hamming/hamming.lcc
+
 Run the real secure computation:
 
     $ ./runtogether.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
+
+In Cygwin
+
+    $ ./runtogether_cygwin.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
 
 --------------------------------------------------------------------------------
 References
