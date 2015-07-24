@@ -82,10 +82,17 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 						+"-t eva -i $1 -c "+packageName+".NoClass\n");
 				fout.close();
 				fout = new FileWriter(new File(shellFolder + File.separator + "runtogether.sh"));
-				fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
-				fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
+				String spt = ":";
+				if (System.getProperty("os.name").startsWith("Windows"))
+				    spt = "\\;";
+				fout.write("java -cp to-run" + spt + "lib/* com.oblivm.backend.lang.inter.Cmd "
+					   +"-t gen -i $1 "
+					   //+ "--config countConfig.conf"
+					   + " -c "+packageName+".NoClass &\n");
+				fout.write("java -cp to-run" + spt + "lib/* com.oblivm.backend.lang.inter.Cmd "
+					   +"-t eva -i $2 "
+					   //+ "--config countConfig.conf "
+					   + "-c "+packageName+".NoClass\n");
 				fout.close();
 				fout = new FileWriter(new File("./countConfig.conf"));
 				fout.write("Host: localhost\n");
