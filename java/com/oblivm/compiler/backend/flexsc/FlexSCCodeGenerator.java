@@ -72,26 +72,56 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 			}
 			
 			if(shellFolder != null) {
-				FileWriter fout = new FileWriter(new File(shellFolder + File.separator + "rungen.sh"));
-				String path = (new File(".").getAbsolutePath());
-				fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t gen -i $1 -c "+packageName+".NoClass\n");
-				fout.close();
-				fout = new FileWriter(new File(shellFolder + File.separator + "runeva.sh"));
-				fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t eva -i $1 -c "+packageName+".NoClass\n");
-				fout.close();
-				fout = new FileWriter(new File(shellFolder + File.separator + "runtogether.sh"));
-				fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
-				fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
-						+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
-				fout.close();
-				fout = new FileWriter(new File("./countConfig.conf"));
-				fout.write("Host: localhost\n");
-				fout.write("Port: 54321\n");
-				fout.write("Mode: COUNT\n");
-				fout.close();
+				FileWriter fout;
+				if(System.getProperty("os.name").startsWith("Windows")) {
+					fout = new FileWriter(new File(shellFolder + File.separator + "rungen_cygwin.sh"));
+					String path = (new File(".").getAbsolutePath());
+					fout.write("java -cp to-run/\\;lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t gen -i $1 -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File(shellFolder + File.separator + "runeva_cygwin.sh"));
+					fout.write("java -cp to-run/\\;lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t eva -i $1 -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File(shellFolder + File.separator + "runtogether_cygwin.sh"));
+					fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
+					fout.write("java -cp to-run\\;lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File("./countConfig.conf"));
+					fout.write("Host: localhost\n");
+					fout.write("Port: 54321\n");
+					if(count)
+						fout.write("Mode: COUNT\n");
+					else
+						fout.write("Mode: REAL\n");
+					fout.close();
+				} else {
+					fout = new FileWriter(new File(shellFolder + File.separator + "rungen.sh"));
+					String path = (new File(".").getAbsolutePath());
+					fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t gen -i $1 -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File(shellFolder + File.separator + "runeva.sh"));
+					fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t eva -i $1 -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File(shellFolder + File.separator + "runtogether.sh"));
+					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
+					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
+							+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
+					fout.close();
+					fout = new FileWriter(new File("./countConfig.conf"));
+					fout.write("Host: localhost\n");
+					fout.write("Port: 54321\n");
+					if(count)
+						fout.write("Mode: COUNT\n");
+					else
+						fout.write("Mode: REAL\n");
+					fout.close();
+				}
 			} 
 		} catch (Exception e) {
 			e.printStackTrace();

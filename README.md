@@ -17,11 +17,12 @@ The code is a research-quality proof of concept, and is still under development 
 
 
 --------------------------------------------------------------------------------
-Disclaimer
+Prerequisit
 --------------------------------------------------------------------------------
 
 Oracle Java 8
 JavaCC 5.0 (to compile C.jj under the parser folder only)
+Python 2.7 (to run tools)
 
 --------------------------------------------------------------------------------
 Compile
@@ -53,6 +54,14 @@ Run the real secure computation:
 In Cygwin
 
     $ ./runtogether_cygwin.sh examples/hamming/input_alice.txt examples/hamming/input_bob.txt 
+
+--------------------------------------------------------------------------------
+Tools
+--------------------------------------------------------------------------------
+
+Under tools/ folder, the following tools are available:
+
+  * datainitilizer: initialize the bit input file from a file containing an integer or an array of integers
 
 --------------------------------------------------------------------------------
 References

@@ -1,0 +1,24 @@
+package com.oblivm.backend.generated.euclidean;
+
+int@n sqrt(int@n m) = native intLib.sqrt;
+
+// alc is the N-dim cordinates (integers) of Alice
+// bb is the N-dim cordinates (integers) of Bob
+
+int32 main@n@m(int@n x, int@m y) {
+	secure int32[public (n/32)] alc;
+	secure int32[public (n/32)] bb;
+	public int32 N = n / 32;
+	
+	for(public int32 i=0; i<N; i = i + 1) {
+		alc[i] = x$32*i~32*i+32$;
+		bb[i] = y$32*i~32*i+32$;
+	}
+
+	int32 flt = 0;
+	for(public int32 i=0; i<N; i = i + 1) {
+		flt = flt + (alc[i]-bb[i]) * (alc[i]-bb[i]);
+	}
+		
+	return sqrt(flt);
+}
