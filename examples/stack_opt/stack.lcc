@@ -9,7 +9,7 @@ typedef NonRecursiveORAM@m<T> = native CircuitOram(m, sizeof(T));
 rnd@m RND(intp_32 m) = native intLib.randBools;
 
 phantom StackNode@m<T> NonRecursiveORAM@m<T>.readAndRemove(int@m id, rnd@m pos) = native conditionalReadAndRemove;
-phantom void NonRecursiveORAM@m<T>.add(int@m id, rnd@m pos, StackNode@m<T> node) = native conditionalPutBack;
+phantom void NonRecursiveORAM@m<T>.add(int@m id, int@m pos, StackNode@m<T> node) = native conditionalPutBack;
  
 struct StackNode@m<T> {
    rnd@m next;
@@ -33,10 +33,10 @@ phantom void Stack@m<T>.push(T operand) {
 
 phantom T Stack@m<T>.pop() {
    T ret;
+   rnd@m next;
    StackNode@m<T> r = this.oram.readAndRemove(this.size, this.root);
-   this.root = r.next;
+   ret, this.root = r.(data, next);
    this.size = this.size - 1;
-   ret = r.data;
    return ret;
 }
 

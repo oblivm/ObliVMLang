@@ -50,7 +50,7 @@ public class AffineTypeChecker extends ASTDefaultTypeVisitor<Boolean> {
 
 	@Override
 	public Boolean visit(ASTRndType type) {
-		return false;
+		return true;
 	}
 
 	@Override

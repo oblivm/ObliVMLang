@@ -71,6 +71,17 @@ public class ResourceBudget {
 		return this.budgets.size() == e.budgets.size();
 	}
 	
+	
+	public boolean consumedSince(ResourceBudget old) {
+		for(Map.Entry<String, Integer> ent : old.budgets.entrySet()) {
+			if(!budgets.containsKey(ent.getKey()) 
+					|| budgets.get(ent.getKey()) < ent.getValue()) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	public Set<String> difference(ResourceBudget e) {
 		Set<String> ret = new HashSet<String>();
 		for(Map.Entry<String, Integer> ent : this.budgets.entrySet()) {
@@ -80,5 +91,9 @@ public class ResourceBudget {
 			}
 		}
 		return ret;
+	}
+	
+	public String toString() {
+		return this.budgets.toString();
 	}
 }

@@ -41,6 +41,7 @@ import com.oblivm.compiler.ast.type.ASTTupleType;
 import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTVariableType;
 import com.oblivm.compiler.ast.type.ASTVoidType;
+import com.oblivm.compiler.log.Bugs;
 import com.oblivm.compiler.util.Pair;
 
 public class BudgetConsumer extends ASTDefaultTypeVisitor<Boolean> implements ExpressionVisitor<Void> {
@@ -195,12 +196,20 @@ public class BudgetConsumer extends ASTDefaultTypeVisitor<Boolean> implements Ex
 	@Override
 	public Void visit(ASTRecExpression rec) {
 		boolean old = this.cancelMode;
-		if(!this.willCancelQ(rec.type)) {
+		if(!this.willCancelQ(this.targetType)) {
 			cancelMode = false;
 		}
 		ASTType oldType = targetType;
 		this.targetType = rec.base.type;
-		visit(rec.base);
+		if((rec.base instanceof ASTVariableExpression) && ((ASTVariableExpression)rec.base).var.equals("this")) {
+			ASTVariableExpression var = new ASTVariableExpression(rec.field);
+			var.setBeginPosition(rec.base.endPosition.line, rec.base.endPosition.column + 1);
+			var.setEndPosition(rec.endPosition);
+			var.type = rec.type;
+			visit(var);
+		} else {
+			visit(rec.base);
+		}
 		this.cancelMode = old;
 		this.targetType = oldType;
 		return null;
@@ -261,10 +270,10 @@ public class BudgetConsumer extends ASTDefaultTypeVisitor<Boolean> implements Ex
 
 	@Override
 	public Void visit(ASTVariableExpression variableExpression) {
-		if(cancelMode && visit(variableExpression.type)) {
+		if(cancelMode && visit(variableExpression.type) && !(variableExpression.var.equals("this"))) {
 			if(!budget.use(variableExpression.var)) {
-				System.err.println("Cannot use variable "+variableExpression.var+"!");
-				throw new RuntimeException("Cannot use variable "+variableExpression.var+"!");
+				Bugs.LOG.log(variableExpression.beginPosition, "Cannot use variable "+variableExpression.var+"!");
+				System.exit(1);
 			}
 		}
 		return null;

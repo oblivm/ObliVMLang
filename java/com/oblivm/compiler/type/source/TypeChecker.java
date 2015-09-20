@@ -127,6 +127,7 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 							budget.addStar(ent.getKey());
 					}
 				}
+				ResourceBudget old_budget = budget.clone();
 				for(String e : function.bitParameter) {
 					variableMapping.put(e, ASTIntType.get(32, ASTLabel.Pub));
 					budget.addStar(e);
@@ -150,6 +151,19 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 //						visit(stmt);
 						return false;
 					}
+				if(budget.consumedSince(old_budget)) {
+					StringBuffer sb = new StringBuffer();
+					sb.append("In function "+func.name+", variables {");
+					boolean first = true;
+					for(String var : old_budget.difference(budget)) {
+						if(first) first = false;
+						else sb.append(", ");
+						sb.append(var);
+					}
+					sb.append("} are consumed");
+					Bugs.LOG.log(sb.toString());
+					System.exit(1);
+				}
 				variableMapping = old;
 			}
 		}
@@ -243,6 +257,14 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 						} else {
 							budget.addStar(((ASTVariableExpression) exp).var);
 						}
+					} else if(exp instanceof ASTRecExpression) {
+						ASTRecExpression exp1 = (ASTRecExpression)exp;
+						if((exp1.base instanceof ASTVariableExpression) && ((ASTVariableExpression)exp1.base).var.equals("this")) {
+							if(atc.isAffine(exp1.type))
+								budget.addAffine(exp1.field);
+							else
+								budget.addStar(exp1.field);
+						}
 					}
 				}
 			}
@@ -252,6 +274,14 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 				budget.addAffine(exp.var);
 			} else {
 				budget.addStar(exp.var);
+			}
+		} else if(assignStatement.var instanceof ASTRecExpression) {
+			ASTRecExpression exp = (ASTRecExpression)assignStatement.var;
+			if((exp.base instanceof ASTVariableExpression) && ((ASTVariableExpression)exp.base).var.equals("this")) {
+				if(atc.isAffine(exp.type))
+					budget.addAffine(exp.field);
+				else
+					budget.addStar(exp.field);
 			}
 		}
 		return true;
