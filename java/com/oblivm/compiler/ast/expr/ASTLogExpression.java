@@ -7,6 +7,10 @@ public class ASTLogExpression extends ASTExpression {
 
 	public ASTExpression exp;
 	
+	public ASTLogExpression cloneInternal() {
+		return new ASTLogExpression(exp.clone());
+	}
+	
 	public ASTLogExpression(ASTExpression exp) {
 		this.exp = exp;
 	}

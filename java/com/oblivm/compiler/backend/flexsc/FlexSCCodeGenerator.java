@@ -47,8 +47,7 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 	
 	public Config config;
 	
-	public void codeGen(TypeManager tm, String packageName, String shellFolder) {
-		boolean count = false;
+	public void codeGen(TypeManager tm, String packageName, String shellFolder, boolean count) {
 		boolean trivial = false;
 		config.setPackageName(packageName);
 		

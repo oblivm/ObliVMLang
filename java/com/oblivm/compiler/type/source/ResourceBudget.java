@@ -4,7 +4,9 @@
 package com.oblivm.compiler.type.source;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ResourceBudget {
 	public Map<String, Integer> budgets; // variable -> budget
@@ -67,5 +69,16 @@ public class ResourceBudget {
 			}
 		}
 		return this.budgets.size() == e.budgets.size();
+	}
+	
+	public Set<String> difference(ResourceBudget e) {
+		Set<String> ret = new HashSet<String>();
+		for(Map.Entry<String, Integer> ent : this.budgets.entrySet()) {
+			if(!e.budgets.containsKey(ent.getKey()) 
+					|| e.budgets.get(ent.getKey()) - ent.getValue() != 0) {
+				ret.add(ent.getKey());
+			}
+		}
+		return ret;
 	}
 }

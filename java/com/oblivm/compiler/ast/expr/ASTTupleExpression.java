@@ -29,4 +29,12 @@ public class ASTTupleExpression extends ASTExpression {
 		}
 		return sb.toString();
 	}
+
+	public ASTTupleExpression cloneInternal() {
+		ASTTupleExpression ret = new ASTTupleExpression();
+		for(ASTExpression e : exps) {
+			ret.exps.add(e.clone());
+		}
+		return ret;
+	}
 }

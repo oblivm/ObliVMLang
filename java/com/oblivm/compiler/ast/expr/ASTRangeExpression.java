@@ -30,4 +30,9 @@ public class ASTRangeExpression extends ASTExpression {
 		return 100;
 	}
 
+	@Override
+	public ASTRangeExpression cloneInternal() {
+		return new ASTRangeExpression(source.clone(), rangel.clone(), ranger.clone());
+	}
+
 }

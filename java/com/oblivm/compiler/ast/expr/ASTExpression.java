@@ -34,4 +34,13 @@ public abstract class ASTExpression extends AST {
 	}
 	
 	public abstract int level();
+
+	public abstract ASTExpression cloneInternal();
+
+	public ASTExpression clone() {
+		ASTExpression exp = cloneInternal();
+		exp.setBeginPosition(this.beginPosition);
+		exp.setEndPosition(this.endPosition);
+		return exp;
+	}
 }

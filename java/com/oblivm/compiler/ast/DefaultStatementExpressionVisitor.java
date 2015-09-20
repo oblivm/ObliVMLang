@@ -19,6 +19,7 @@ import com.oblivm.compiler.ast.expr.ASTPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.expr.ExpressionVisitor;
@@ -41,6 +42,10 @@ import com.oblivm.compiler.ast.stmt.StatementVisitor;
  * @param <T2>
  */
 public abstract class DefaultStatementExpressionVisitor<T1, T2> implements StatementVisitor<T1>, ExpressionVisitor<T2> {
+
+	public T2 visitNull() {
+		throw new RuntimeException("Unsupported null expression!");
+	}
 	
 	public T2 visit(ASTPredicate predicate) {
 		if(predicate instanceof ASTBinaryPredicate) {
@@ -54,7 +59,9 @@ public abstract class DefaultStatementExpressionVisitor<T1, T2> implements State
 	}
 
 	public T2 visit(ASTExpression expression) {
-		if(expression instanceof ASTBinaryExpression) {
+		if(expression == null) {
+			return visitNull();
+		} else if(expression instanceof ASTBinaryExpression) {
 			return visit((ASTBinaryExpression)expression);
 		} else if(expression instanceof ASTConstantExpression) {
 			return visit((ASTConstantExpression)expression);
@@ -82,6 +89,8 @@ public abstract class DefaultStatementExpressionVisitor<T1, T2> implements State
 			return visit((ASTRangeExpression)expression);
 		} else if(expression instanceof ASTNullExpression) {
 			return visit((ASTNullExpression)expression);
+		} else if(expression instanceof ASTSizeExpression) {
+			return visit((ASTSizeExpression)expression);
 		} else
 			throw new RuntimeException("Unknown Expression!");
 	}

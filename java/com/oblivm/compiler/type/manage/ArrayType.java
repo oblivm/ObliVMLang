@@ -18,7 +18,7 @@ public class ArrayType extends Type {
 	@Override
 	public VariableConstant getBits() {
 		
-		if(this.indexLab.lab == Label.Pub) {
+//		if(this.indexLab.lab == Label.Pub) {
 			VariableConstant vc = this.type.getBits();
 			if(vc == null)
 				return null;
@@ -27,8 +27,8 @@ public class ArrayType extends Type {
 				return vc;
 			else
 				return new BOPVariableConstant(vc, com.oblivm.compiler.ir.BopExp.Op.Mul, size);
-		} else 
-			return null;
+//		} else 
+//			return null;
 	}
 
 	@Override
@@ -39,6 +39,21 @@ public class ArrayType extends Type {
 	@Override
 	public boolean constructable() {
 		return type.constructable();
+	}
+
+	@Override
+	public boolean writable() {
+		return type.writable();
+	}
+
+	@Override
+	public boolean similar(Type type) {
+		if(type instanceof DummyType)
+			return type.similar(this);
+		if(!(type instanceof ArrayType))
+			return false;
+		ArrayType at = (ArrayType)type;
+		return this.type.similar(at.type);
 	}
 	
 }

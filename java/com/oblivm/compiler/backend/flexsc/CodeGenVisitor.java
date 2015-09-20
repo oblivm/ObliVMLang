@@ -33,6 +33,7 @@ import com.oblivm.compiler.ir.Ret;
 import com.oblivm.compiler.ir.ReverseRecordAssign;
 import com.oblivm.compiler.ir.RopExp;
 import com.oblivm.compiler.ir.Seq;
+import com.oblivm.compiler.ir.SizeofExp;
 import com.oblivm.compiler.ir.Skip;
 import com.oblivm.compiler.ir.SopExp;
 import com.oblivm.compiler.ir.UnaryOpExp;
@@ -41,16 +42,21 @@ import com.oblivm.compiler.ir.VarExp;
 import com.oblivm.compiler.ir.Variable;
 import com.oblivm.compiler.ir.While;
 import com.oblivm.compiler.type.manage.ArrayType;
+import com.oblivm.compiler.type.manage.BOPVariableConstant;
+import com.oblivm.compiler.type.manage.BitVariable;
 import com.oblivm.compiler.type.manage.CanonicalName;
+import com.oblivm.compiler.type.manage.Constant;
 import com.oblivm.compiler.type.manage.DummyType;
 import com.oblivm.compiler.type.manage.FloatType;
 import com.oblivm.compiler.type.manage.FunctionType;
 import com.oblivm.compiler.type.manage.IntType;
 import com.oblivm.compiler.type.manage.Label;
+import com.oblivm.compiler.type.manage.LogVariable;
 import com.oblivm.compiler.type.manage.NativeType;
 import com.oblivm.compiler.type.manage.NullType;
 import com.oblivm.compiler.type.manage.RecordType;
 import com.oblivm.compiler.type.manage.RndType;
+import com.oblivm.compiler.type.manage.SizeofVariable;
 import com.oblivm.compiler.type.manage.Type;
 import com.oblivm.compiler.type.manage.Unknown;
 import com.oblivm.compiler.type.manage.VariableConstant;
@@ -547,7 +553,12 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		if(assign.toDum) {
 			Pair<String, String> tmp = visit(assign.exp);
 			sb.append(tmp.right);
-			sb.append(tmp.left);
+			sb.append(indent(indent));
+			if(tmp.left.endsWith(".value"))
+				sb.append(tmp.left.substring(0, tmp.left.length() - 6));
+			else
+				sb.append(tmp.left);
+			sb.append(";\n");
 		} else if(assign.name.toHaveType && assign.withTypeDef) {
 			if(this.currentType != VoidType.get()) {
 				if(assign.lab != Label.Pub && assign.exp.getLabels() == Label.Pub) {
@@ -706,7 +717,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		StringBuffer sb = new StringBuffer();
 //		String ret = "f_tmp_"+(this.tmpId++);
 //		String ty = visit(exp.type);
-		sb.append(indent(indent));
+//		sb.append(indent(indent));
 		String base = "noclass";
 		if(exp.base != null)
 			base = exp.base.name;
@@ -756,13 +767,24 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				if(var.type instanceof FunctionType && ((FunctionType)var.type).global) {
 					sb.append(this.constructor(var.type));
 				} else {
-					if(var.type.getLabel() == Label.Pub && exp.fty.inputTypes.get(i).getLabel() == Label.Secure) {
+					String value; 
+					if(var.type.getLabel() == Label.Pub &&
+							(i == exp.rawFty.inputTypes.size()  // dealing with the phantom bit input
+							|| exp.rawFty.inputTypes.get(i).getLabel() == Label.Secure)) {
 						if(var.type.getBits().isConstant(1))
-							sb.append("env.inputOfAlice(" + var.name+")");
+							value = "env.inputOfAlice(" + var.name+")";
 						else 
-							sb.append("env.inputOfAlice(Utils.fromInt(" + var.name+", "+var.type.getBits()+"))");
+							value = "env.inputOfAlice(Utils.fromInt(" + var.name+", "+var.type.getBits()+"))";
 					} else
-						sb.append(var.name);
+						value = var.name;
+					
+					if(i < exp.rawFty.inputTypes.size()   // dealing with the phantom bit input
+							&& exp.rawFty.inputTypes.get(i) instanceof VariableType) {
+						if(!exp.rawFty.inputTypes.get(i).similar(exp.fty.inputTypes.get(i))) {
+							value = "new BoxedInt(env, "+value+")";
+						}
+					}
+					sb.append(value);
 				}
 			}
 		}
@@ -774,8 +796,11 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				sb.append(")");
 			}
 		}
-		sb.append(";\n");
-		return new Pair<String, String>(sb.toString(), precomputing.toString()); 
+		String value = sb.toString();
+		if(!exp.rawFty.returnType.similar(exp.fty.returnType)) {
+			value = value+".value";
+		}
+		return new Pair<String, String>(value, precomputing.toString()); 
 	}
 
 	@Override
@@ -1025,6 +1050,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		return con;
 	}
 	
+
 	public String constructor(Type type) {
 		if(type instanceof DummyType) {
 			DummyType dt = (DummyType)type;
@@ -1135,7 +1161,13 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				return sb.toString();
 			} else {
 				String s = "SecureArray<"+dataType+">"; 
-				return "new "+s+"(env, "+at.size+", "+at.type.getBits()+")";
+				VariableConstant bits = at.type.getBits();
+				String bit = bits.toString();
+				if(bits instanceof Unknown) {
+					VariableType vt = (VariableType) at.type;
+					bit = "factory"+vt.name+".numBits()";
+				}
+				return "new "+s+"(env, "+at.size+", "+bit+")";
 			}
 		} else if (type instanceof FunctionType) {
 			FunctionType fty = (FunctionType)type;
@@ -1165,6 +1197,19 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				sb.append("_iNpUt_"+i);
 			}
 			sb.append("))");
+			return sb.toString();
+		} else if(type instanceof NativeType) {
+			NativeType nt = (NativeType)type;
+			if(nt.constructor == null)
+				return null;
+			StringBuffer sb = new StringBuffer();
+			sb.append("new "+nt.nativeName);
+			sb.append("(env");
+			for(int i=0; i<nt.constructor.size(); ++i) {
+				sb.append(", ");
+				sb.append(this.compileVariableConstant(nt.constructor.get(i)));
+			}
+			sb.append(")");
 			return sb.toString();
 		} else {
 			return null;
@@ -1222,15 +1267,16 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				}
 			}
 		}
-		for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
-			if(ent.getValue().getBits() == null) {
-				sb.append(", ");
-				if(withDef)
-					sb.append(visit(ent.getValue())+" ");
-				sb.append(this.constructor(ent.getValue()));
-
-			}
-		}
+		// TODO deleting the following code is not fully tested
+//		for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
+//			if(ent.getValue().getBits() == null) {
+//				sb.append(", ");
+//				if(withDef)
+//					sb.append(visit(ent.getValue())+" ");
+//				sb.append(this.constructor(ent.getValue()));
+//
+//			}
+//		}
 		sb.append(")");
 		return sb.toString();
 	}
@@ -1260,14 +1306,15 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				sb.append("factory"+vt.name);
 			}
 		}
-		for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
-			if(ent.getValue().getBits() == null) {
-				sb.append(", ");
-				sb.append(visit(ent.getValue())+" ");
-				sb.append(ent.getKey());
-
-			}
-		}
+		// TODO deleting the following code is not fully tested
+//		for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
+//			if(ent.getValue().getBits() == null) {
+//				sb.append(", ");
+//				sb.append(visit(ent.getValue())+" ");
+//				sb.append(ent.getKey());
+//
+//			}
+//		}
 		sb.append(")");
 		return sb.toString();
 	}
@@ -1473,6 +1520,60 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		indent --;
 		sb.append(indent(indent) + "}\n");
 		return sb.toString();
+	}
+
+	private int tmpNumber = 0;
+	
+	@Override
+	public Pair<String, String> visit(SizeofExp exp) {
+		StringBuffer sb = new StringBuffer();
+		sb.append(indent(indent));
+		String var = "_sizeof_tmp_"+tmpNumber;
+		tmpNumber ++;
+		sb.append(visit(exp.type) + " " + var + " = " + this.constructor(exp.type) + ";\n");
+		return new Pair<String, String>(
+				var+(exp.type.rawType() ? ".length" : ".numBits()"), 
+				sb.toString());
+	}
+
+	public String compileVariableConstant(VariableConstant vc) {
+		if(vc instanceof BitVariable) {
+			return compileVariableConstant((BitVariable)vc);
+		} else if(vc instanceof BOPVariableConstant) {
+			return compileVariableConstant((BOPVariableConstant)vc);
+		} else if(vc instanceof Constant) {
+			return compileVariableConstant((Constant)vc);
+		} else if(vc instanceof LogVariable) {
+			return compileVariableConstant((LogVariable)vc);
+		} else if(vc instanceof SizeofVariable) {
+			return compileVariableConstant((SizeofVariable)vc);
+		} else 
+			throw new RuntimeException("Unknown constant");
+	}
+
+	public String compileVariableConstant(BitVariable vc) {
+		return vc.var;
+	}
+
+	public String compileVariableConstant(BOPVariableConstant vc) {
+		return "(" + compileVariableConstant(vc.left) + ")" 
+				+ vc.op + "(" + compileVariableConstant(vc.right) + ")";
+	}
+
+	public String compileVariableConstant(Constant vc) {
+		return Integer.toString(vc.value);
+	}
+
+	public String compileVariableConstant(LogVariable vc) {
+		return "Utils.logFloor("+compileVariableConstant(vc.exp)+")";
+	}
+
+	public String compileVariableConstant(SizeofVariable vc) {
+		if(vc.type instanceof VariableType) {
+			VariableType vt = (VariableType)vc.type;
+			return "factory"+vt.name+".numBits()";
+		}
+		return this.constructor(vc.type)+(vc.type.rawType() ? ".length" : ".numBits()");
 	}
 
 }

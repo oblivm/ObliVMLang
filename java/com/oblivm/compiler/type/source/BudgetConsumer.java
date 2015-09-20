@@ -22,6 +22,7 @@ import com.oblivm.compiler.ast.expr.ASTPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.expr.ExpressionVisitor;
@@ -97,6 +98,8 @@ public class BudgetConsumer extends ASTDefaultTypeVisitor<Boolean> implements Ex
 			return visit((ASTRangeExpression)expression);
 		} else if(expression instanceof ASTNullExpression) {
 			return visit((ASTNullExpression)expression);
+		} else if(expression instanceof ASTSizeExpression) {
+			return visit((ASTSizeExpression)expression);
 		} else
 			throw new RuntimeException("Unknown Expression!");
 	}
@@ -354,6 +357,16 @@ public class BudgetConsumer extends ASTDefaultTypeVisitor<Boolean> implements Ex
 		}
 		this.targetType = tmp;
 		return false;
+	}
+
+	@Override
+	public Void visitNull() {
+		throw new RuntimeException("Unsupported Null Expression!");
+	}
+
+	@Override
+	public Void visit(ASTSizeExpression exp) {
+		return null;
 	}
 
 }

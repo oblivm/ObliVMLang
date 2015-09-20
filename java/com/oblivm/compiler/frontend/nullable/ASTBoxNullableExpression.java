@@ -20,4 +20,9 @@ public class ASTBoxNullableExpression extends ASTExpression {
 	public int level() {
 		return 100;
 	}
+
+	@Override
+	public ASTBoxNullableExpression cloneInternal() {
+		return new ASTBoxNullableExpression(exp.clone());
+	}
 }

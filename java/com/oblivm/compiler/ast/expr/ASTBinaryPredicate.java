@@ -49,4 +49,8 @@ public class ASTBinaryPredicate extends ASTPredicate {
 	public int level() {
 		return 2;
 	}
+
+	public ASTBinaryPredicate cloneInternal() {
+		return new ASTBinaryPredicate(left.clone(), op, right.clone());
+	}
 }

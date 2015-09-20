@@ -13,10 +13,12 @@ import com.oblivm.compiler.ir.BopExp.Op;
 import com.oblivm.compiler.type.manage.ArrayType;
 import com.oblivm.compiler.type.manage.BOPVariableConstant;
 import com.oblivm.compiler.type.manage.BitVariable;
+import com.oblivm.compiler.type.manage.Constant;
 import com.oblivm.compiler.type.manage.FloatType;
 import com.oblivm.compiler.type.manage.IntType;
 import com.oblivm.compiler.type.manage.Label;
 import com.oblivm.compiler.type.manage.Method;
+import com.oblivm.compiler.type.manage.NativeType;
 import com.oblivm.compiler.type.manage.RecordType;
 import com.oblivm.compiler.type.manage.RndType;
 import com.oblivm.compiler.type.manage.Type;
@@ -28,6 +30,8 @@ import com.oblivm.compiler.util.Pair;
 public class TypeEmittable extends Emittable {
 	CodeGenVisitor codeGen;
 	RecordType type;
+
+	Method main = null;
 
 	public TypeEmittable(Config config, CodeGenVisitor codeGen, RecordType type) throws IOException {
 		super(new PrintStream(new File(config.path+"/"+type.name+".java")), config, type.name);
@@ -48,13 +52,16 @@ public class TypeEmittable extends Emittable {
 			this.implementInterfaces.add("IWritable<"+codeGen.visit(type)+", "+codeGen.dataType+">");
 		}
 		type.getMethods().contains("main");
+		main = null;
 		if(type.name.equals("NoClass")) {
-		    for(Method meth : type.getMethods()) {
-		      if(meth.name.equals("main")) {
-		        this.implementInterfaces.add("ISecureRunnable<"+codeGen.dataType+">");
-		        break;
-		      }
-		    }
+			for(Method meth : type.getMethods()) {
+				if(meth.name.equals("main")) {
+					this.implementInterfaces.add("ISecureRunnable<"+codeGen.dataType+">");
+					if ( main != null)
+						throw new RuntimeException("Multiple main function!");
+					main = meth;
+				}
+			}
 		}
 	}
 
@@ -168,9 +175,12 @@ public class TypeEmittable extends Emittable {
 			}
 		for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
 			String cons = codeGen.constructor(ent.getValue());
-			if(ent.getValue().getBits() == null)
+			if(ent.getValue() instanceof NativeType) {
+				out.println("\t\tthis."+ent.getKey()+" = "+cons+";");
+			} else if(ent.getValue().getBits() == null) {
+				// TODO this doesn't look correct.
 				out.println("\t\tthis."+ent.getKey()+" = "+ent.getKey()+";");
-			else {
+			} else {
 				if(cons == null)
 					continue;
 				out.println("\t\tthis."+ent.getKey()+" = "+cons+";");
@@ -215,14 +225,14 @@ public class TypeEmittable extends Emittable {
 	}
 
 	public boolean inheritWritable(Type type) {
-		return type.constructable();
+		return type.writable();
 		//		return type.getBits() != null;
 	}
 
 	public void emitNumBits() {
 		out.println("\tpublic int numBits() {");
 		if(!(type.getBits() instanceof Unknown)) {
-			out.println("\t\treturn "+type.getBits()+";\n\t}");
+			out.println("\t\treturn "+type.getBits()+";\n\t}\n");
 		} else {
 			out.println("\t\tint sum = 0;");
 			for(Map.Entry<String, Type> ent : type.fields.entrySet()) {
@@ -237,15 +247,20 @@ public class TypeEmittable extends Emittable {
 						) {
 					out.println("\t\tsum += "+ent.getKey()+".length;");
 				} else if (ent.getValue() instanceof ArrayType) {
-					ArrayType at = (ArrayType) ent.getValue();
-					VariableConstant vc = at.size;
-					String suffix = "[0]";
-					while(at.type instanceof ArrayType) {
-						at = (ArrayType)at.type;
+					Type type = ent.getValue();
+					VariableConstant vc = new Constant(1);
+					String suffix = "";
+					while(type instanceof ArrayType) {
+						ArrayType at = (ArrayType) type;
 						vc = new BOPVariableConstant(vc, Op.Mul, at.size);
+						if(((ArrayType)type).indexLab.lab == Label.Secure)
+							break;
+						type = at.type;
 						suffix += "[0]";
 					}
-					out.println("\t\tsum += "+ent.getKey()+".length == 0 ? 0 : "+ent.getKey()+suffix+(at.type.rawType() ? ".length" : ".numBits()")+"*"+vc.toString()+";");
+					out.println("\t\tsum += "+ent.getKey()+".length == 0 ? 0 : "+ent.getKey()+suffix
+						+ (type instanceof ArrayType ? ".dataSize" : type.rawType() ? ".length" : ".numBits()")
+						+ "*" + vc.toString() + ";");
 				} else {
 					out.println("\t\tsum += "+ent.getKey()+".numBits();");
 				}
@@ -256,7 +271,7 @@ public class TypeEmittable extends Emittable {
 	}
 
 	public void emitGetBits() {
-		out.println("\tpublic "+codeGen.dataType+"[] getBits() {");
+		out.println("\tpublic "+codeGen.dataType+"[] getBits() throws Exception {");
 		//		out.println("\t\t"+codeGen.dataType+"[] ret = new "+codeGen.dataType+"[this.numBits()];");
 		out.println("\t\t"+codeGen.dataType+"[] ret = env.newTArray(this.numBits());");
 		out.println("\t\t"+codeGen.dataType+"[] tmp_b;");
@@ -266,14 +281,18 @@ public class TypeEmittable extends Emittable {
 			if(ent.getValue().getLabel() == Label.Pub)
 				continue;
 			String var = "tmp_b";
-			if(ent.getValue().getBits().isConstant(1))
+			if(ent.getValue().getBits() != null && ent.getValue().getBits().isConstant(1))
 				var = "tmp";
 			if(ent.getValue().rawType())
 				out.println("\t\t"+var+" = "+ent.getKey()+";");
 			else if (ent.getValue() instanceof ArrayType) {
+				// TODO handling multi-dimensional ORAM might be wrong
 				ArrayType at = (ArrayType) ent.getValue();
 				VariableConstant vc = at.size;
-				String suffix = "[i0]";
+				String template = "%x[i0]";
+				if (at.indexLab.lab == Label.Secure) {
+					template = "%x.read(intLib.toSignals(i0))";
+				}
 				String prefix = "\t\t";
 				int now = 0;
 				out.println(prefix+"for(int %i=0; %i<%vc; ++%i)".replaceAll("%i", "i"+now).replaceAll("%vc", vc.toString()));
@@ -283,10 +302,14 @@ public class TypeEmittable extends Emittable {
 					at = (ArrayType)at.type;
 					vc = at.size;
 					out.println(prefix+"for(int %i=0; %i<%vc; ++%i)".replaceAll("%i", "i"+now).replaceAll("%vc", vc.toString()));
-					suffix += "[%i]".replaceAll("%i", "i"+now);
+					String tmplt = "%x[%i]";
+					if(at.indexLab.lab == Label.Secure) {
+						tmplt = "%x.read(intLib.toSignal(%i))";
+					}
+					template = tmplt.replaceAll("%i", "i"+now).replaceAll("%x", template);
 				}
 				out.println(prefix + "{");
-				out.println(prefix + "\ttmp_b = "+ent.getKey()+suffix+(!(at.type instanceof RecordType) ? ";" : ".getBits();"));
+				out.println(prefix + "\ttmp_b = "+template.replaceAll("%x", ent.getKey())+(!(at.type instanceof RecordType) ? ";" : ".getBits();"));
 				out.println(prefix + "\tSystem.arraycopy(tmp_b, 0, ret, now, tmp_b.length);");
 				out.println(prefix + "\tnow += tmp_b.length;");
 				out.println(prefix + "}");
@@ -307,7 +330,7 @@ public class TypeEmittable extends Emittable {
 			}
 		}
 		out.println("\t\treturn ret;");
-		out.println("\t\t}\n");
+		out.println("\t}\n");
 	}
 
 	public void emitNewObj() {
@@ -367,13 +390,17 @@ public class TypeEmittable extends Emittable {
 				//				out.println("\t\tSystem.arraycopy(data, now, tmp, 0, tmp.length);");
 				//				out.println("\t\tnow += tmp.length;");
 				//				out.println("\t\tret."+ent.getKey()+" = ret.factory"+vt.name+".newObj(tmp);");
-			} else {
+			} else if (ent.getValue() instanceof VariableType) {
 				VariableType vt = (VariableType)ent.getValue();
 				out.println("\t\ttmp = env.newTArray(this.factory"+vt.name+".numBits());");
 				out.println("\t\tSystem.arraycopy(data, now, tmp, 0, tmp.length);");
 				out.println("\t\tnow += tmp.length;");
 				out.println("\t\tret."+ent.getKey()+" = ret.factory"+vt.name+".newObj(tmp);");
-			}
+			} else if (ent.getValue() instanceof NativeType) {
+				NativeType nt = (NativeType)ent.getValue();
+				//TODO
+			} else
+				throw new RuntimeException("Unconstructable type!");
 		}
 		out.println("\t\treturn ret;");
 		out.println("\t}\n");
@@ -479,7 +506,6 @@ public class TypeEmittable extends Emittable {
 			initialize(ent.right, ent.left, 2);
 		}
 		codeGen.indent = 2;
-//		System.out.println(method.code.toString());
 		out.println(codeGen.visit(method.code));
 		out.println("\t}");
 	}
@@ -498,8 +524,16 @@ public class TypeEmittable extends Emittable {
 			String li = "_j_"+level;
 			if(cons != null) {
 				out.println(indent(level)+"for(int "+li+" = 0; "+li+" < "+at.size+"; ++"+li+") {");
-				out.println(indent(level+1)+field+"["+li+"] = "+cons+";");
-				initialize(field+"["+li+"]", at.type, level + 1);
+				String next = at.indexLab.lab == Label.Secure 
+						? field+".read(intLib.toSignals("+li+"))" 
+								: field+"["+li+"]";
+				if(at.indexLab.lab == Label.Secure) {
+					out.println(indent(level+1)+field+".write(intLib.toSignals("+li+"), "+cons+");");
+				} else {
+					out.println(indent(level+1)+next+" = "+cons+";");
+				}
+				initialize(next, 
+						at.type, level + 1);
 				out.println(indent(level)+"}");
 			}
 		} else if(type instanceof RecordType) {
@@ -510,6 +544,115 @@ public class TypeEmittable extends Emittable {
 		}
 	}
 
+	// used by emitMain only
+	private String getIntParameter(Type type) {
+		String noneRet = "<null>";
+		if(!(type instanceof IntType))
+			return noneRet;
+		IntType it = (IntType)(type);
+		if(it.getBits() instanceof BitVariable) {
+			return ((BitVariable)it.getBits()).var;
+		} else
+			return noneRet;
+	}
+
+	// used by emitMain only
+	private String getArraySizeParameter(Type type) {
+		String noneRet = "<null>";
+		if(!(type instanceof ArrayType))
+			return noneRet;
+		ArrayType at = (ArrayType)type;
+		if(!(at.type instanceof IntType))
+			return noneRet;
+		IntType it = (IntType)(at.type);
+		if((at.size instanceof BitVariable) && (it.bit instanceof Constant)) {
+			return ((BitVariable)at.size).var;
+		} else
+			return noneRet;
+	}
+
+	// used by emitMain only
+	private String getArrayIntSizeParameter(Type type) {
+		String noneRet = "<null>";
+		if(!(type instanceof ArrayType))
+			return noneRet;
+		ArrayType at = (ArrayType)type;
+		if(!(at.type instanceof IntType))
+			return noneRet;
+		IntType it = (IntType)(at.type);
+		if((it.bit instanceof BitVariable) && (at.size instanceof Constant)) {
+			return ((BitVariable)it.bit).var;
+		} else
+			return noneRet;
+	}
+
+	private void emitMain() {
+		if (main.bitParameters.size() == 2 
+				&& main.parameters.size() == 2
+				&& main.parameters.get(0).left instanceof IntType
+				&& main.parameters.get(1).left instanceof IntType) {
+			return;
+		}
+
+		if (!(main.returnType instanceof IntType)) {
+			throw new RuntimeException("Unsupported main function's return type: only support return int.");
+		}
+
+		if (main.parameters.size() != 2) {
+			throw new RuntimeException("main functions only take two inputs: alice and bob.");
+		}
+		out.print("\tpublic ");
+		out.print(codeGen.visit(main.returnType)+" main (int __n, int __m, "+codeGen.dataType+"[] x, "+codeGen.dataType+"[] y) throws Exception {\n");
+		int inputParams = main.parameters.size() + main.bitParameters.size();
+		String[] inputs = new String[inputParams];
+		for(int i=0; i<inputs.length; ++i) {
+			if (i < main.bitParameters.size()) {
+				String v = main.bitParameters.get(i);
+				if(v.equals(getIntParameter(main.parameters.get(0).left))) {
+					inputs[i] = "__n";
+				} else if(v.equals(getIntParameter(main.parameters.get(1).left))) {
+					inputs[i] = "__m";
+				} else if(v.equals(getArraySizeParameter(main.parameters.get(0).left))) {
+					inputs[i] = "__n / ("+((IntType)((ArrayType)main.parameters.get(0).left).type).bit+")";
+				} else if(v.equals(getArraySizeParameter(main.parameters.get(1).left))) {
+					inputs[i] = "__m / ("+((IntType)((ArrayType)main.parameters.get(1).left).type).bit+")";
+				} else if(v.equals(getArrayIntSizeParameter(main.parameters.get(0).left))) {
+					inputs[i] = "__n / ("+((ArrayType)main.parameters.get(0).left).size+")";
+				} else if(v.equals(getArrayIntSizeParameter(main.parameters.get(1).left))) {
+					inputs[i] = "__m / ("+((ArrayType)main.parameters.get(0).left).size+")";
+				} else
+					inputs[i] = "0";
+				out.println("\t\tint "+v+" = "+inputs[i]+";");
+				inputs[i] = v;
+			} else {
+				int j = i - main.bitParameters.size();
+				Type type = main.parameters.get(j).left;
+				if(type instanceof IntType) {
+					inputs[i] = j == 0 ? "x" : "y";
+				} else if(type instanceof ArrayType && ((ArrayType)type).type instanceof IntType) {
+					ArrayType at = (ArrayType)type;
+					IntType it = (IntType)at.type;
+					out.print("\t\tif ( ("+at.size.toString()+") * ("+it.bit+") != "+(j==0 ? "__n" : "__m")+" ) {\n");
+					out.print("\t\t\tthrow new RuntimeException(\"input size doesn't match\");\n");
+					out.print("\t\t}\n");
+					if(at.indexLab.lab == Label.Pub)
+						inputs[i] = "com.oblivm.backend.lang.inter.Util.intToArray("+(j==0 ? "x" : "y")+", "+it.bit+", "+at.size+")";
+					else
+						inputs[i] = "com.oblivm.backend.lang.inter.Util.intToSecArray(env, "+(j==0 ? "x" : "y")+", "+it.bit+", "+at.size+")";
+				} else {
+					throw new RuntimeException("Unsupported main function.");
+				}
+			}
+		}
+		out.print("\t\treturn main(");
+		for(int i=0; i<inputs.length; ++i) {
+			if(i > 0) out.print(", ");
+			out.print(inputs[i]);
+		}
+		out.println(");");
+		out.print("\t}\n");
+	}
+
 	@Override
 	public void emitMethodsInternal() {
 		if(this.inheritWritable(type))
@@ -518,6 +661,10 @@ public class TypeEmittable extends Emittable {
 		codeGen.scopeType = this.type;
 		for(Method meth : type.getMethods())
 			emitAMethod(meth);
+
+		if (this.main != null) {
+			emitMain();
+		}
 	}
 
 }

@@ -6,6 +6,8 @@ package com.oblivm.compiler.ast.expr;
 
 public interface ExpressionVisitor<T> {
 
+	public abstract T visitNull();
+	
 	public abstract T visit(ASTAndPredicate andPredicate);
 
 	public abstract T visit(ASTArrayExpression arrayExpression);
@@ -42,4 +44,5 @@ public interface ExpressionVisitor<T> {
 	
 	public abstract T visit(ASTNullExpression exp);
 	
+	public abstract T visit(ASTSizeExpression exp);
 }

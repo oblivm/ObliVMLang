@@ -1,0 +1,47 @@
+package com.oblivm.backend.generated.stack;
+
+struct Stack@n<T> {
+	T[n] elements;
+	int top;
+};
+
+void Stack@n<T>.initialize() {
+	top = 0;
+}
+
+phantom T Stack@n<T>.pop() {
+	T ret;
+	if(top > 0) {
+		top = top - 1;
+		ret = elements[top];
+	}
+	return ret;
+}
+
+phantom void Stack@n<T>.push(T value) {
+	if(top < n) {
+		elements[top] = value;
+		top = top + 1;
+	}
+}
+
+
+T Stack@n<T>.op(int operand, T value) {
+	T ret;
+	if (operand == 0) {
+		this.push(value);
+	} else {
+		ret = this.pop();
+	}
+	return ret;
+}
+
+
+int main@n(int[n] x, int[n] y) {
+	Stack@100<int> stack;
+	stack.initialize();
+	for(public int i=0; i<n; i=i+1) {
+		stack.op(y[i], x[i]);
+	}
+	return stack.pop();
+}

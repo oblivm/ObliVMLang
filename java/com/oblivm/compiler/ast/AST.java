@@ -39,17 +39,11 @@ public abstract class AST {
 	}
 	
 	public void setBeginPosition(Position pos) {
-		if(pos == null)
-			this.beginPosition = null;
-		else
-			this.beginPosition = new Position(pos.line, pos.column);
+		this.beginPosition = new Position(pos.line, pos.column);
 	}
 	
 	public void setEndPosition(Position pos) {
-		if(pos == null)
-			this.endPosition = null;
-		else
-			this.endPosition = new Position(pos.line, pos.column);
+		this.endPosition = new Position(pos.line, pos.column);
 	}
 	
 	public abstract String toString(int indent);

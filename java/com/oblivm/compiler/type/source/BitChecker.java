@@ -25,6 +25,7 @@ import com.oblivm.compiler.ast.expr.ASTOrPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -48,6 +49,7 @@ import com.oblivm.compiler.ast.type.ASTTupleType;
 import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTVariableType;
 import com.oblivm.compiler.ast.type.ASTVoidType;
+import com.oblivm.compiler.log.Bugs;
 
 /**
  * Check if the bit expressions in a program are valid.
@@ -62,7 +64,8 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 	BitVariableExtractor bve = new BitVariableExtractor();
 	
 	public boolean check(ASTProgram program) {
-
+		boolean ret = true;
+		
 		bitVariables = new HashSet<String>();
 
 		for(int i = 0; i<program.typeDef.size(); ++i) {
@@ -74,8 +77,8 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 					bitVariables.add(ve.var);
 				}
 			if(!visit(program.typeDef.get(i).right)) {
-				visit(program.typeDef.get(i).right);
-				return false;
+//				visit(program.typeDef.get(i).right);
+				ret = false;
 			}
 		}
 		
@@ -91,21 +94,24 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 				bitVariables.addAll(function.bitParameter);
 				for(int i=0; i<function.inputVariables.size(); ++i)
 					if(!visit(function.inputVariables.get(i).left)) {
-						visit(function.inputVariables.get(i).left);
-						return false;
+//						visit(function.inputVariables.get(i).left);
+						ret = false;
 					}
 				for(int i=0; i<function.localVariables.size(); ++i)
 					if(!visit(function.localVariables.get(i).left)) {
-						visit(function.localVariables.get(i).left);
-						return false;
+//						visit(function.localVariables.get(i).left);
+						ret = false;
 					}
 			}
-		return true;
+		return ret;
 	}
 	
 	@Override
 	public Boolean visit(ASTArrayType type) {
-		return visit(type.size) && visit(type.type);
+		boolean a = false;
+		if(visit(type.size)) a = true;
+		if(visit(type.type)) a = true;
+		return a;
 	}
 
 	@Override
@@ -130,25 +136,35 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTRecType type) {
+		boolean ret = true;
 		for(ASTExpression e : type.bitVariables)
 			if(!visit(e))
-				return false;
+				ret = false;
+		if(type.typeVariables != null) {
+			for(ASTType ty : type.typeVariables) {
+				if(!visit(ty)) {
+					return false;
+				}
+			}
+		}
 		for(ASTType ty : type.fieldsType.values())
-			if(!visit(ty))
-				return false;
-		return true;
+			if(!visit(ty)) {
+				ret = false;
+			}
+		return ret;
 	}
 
 	@Override
 	public Boolean visit(ASTVariableType type) {
+		boolean ret = true;
 		for(ASTExpression e : type.bitVars)
 			if(!visit(e))
-				return false;
+				ret = false;
 		if(type.typeVars != null)
 			for(ASTType ty : type.typeVars)
 				if(!visit(ty))
-					return false;
-		return true;
+					ret = false;
+		return ret;
 	}
 
 	@Override
@@ -158,16 +174,20 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTFunctionType type) {
-		if(!visit(type.returnType))
-			return false;
+		boolean ret = true;
+		if(!visit(type.returnType)) {
+			ret = false;
+		}
 		for(int i=0; i<type.inputTypes.size(); ++i)
-			if(!visit(type.inputTypes.get(i)))
-				return false;
-		return true;
+			if(!visit(type.inputTypes.get(i))) {
+				ret = false;
+			}
+		return ret;
 	}
 
 	@Override
 	public Boolean visit(ASTAssignStatement assignStatement) {
+		Bugs.LOG.log(assignStatement.beginPosition, "assign statement is not allowed to appear in bit expression");
 		return false;
 	}
 
@@ -198,22 +218,32 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 	
 	@Override
 	public Boolean visit(ASTAndPredicate andPredicate) {
-		return visit(andPredicate.left) && visit(andPredicate.right);
+		boolean ret = false;
+		if(visit(andPredicate.left)) ret = true;
+		if(visit(andPredicate.right)) ret = true;
+		return ret;
 	}
 
 	@Override
 	public Boolean visit(ASTArrayExpression arrayExpression) {
+		Bugs.LOG.log(arrayExpression.beginPosition, "array expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTBinaryExpression binaryExpression) {
-		return visit(binaryExpression.left) && visit(binaryExpression.right);
+		boolean ret = false;
+		if(visit(binaryExpression.left)) ret = true;
+		if(visit(binaryExpression.right)) ret = true;
+		return ret;
 	}
 
 	@Override
 	public Boolean visit(ASTBinaryPredicate binaryPredicate) {
-		return visit(binaryPredicate.left) && visit(binaryPredicate.right);
+		boolean ret = false;
+		if(visit(binaryPredicate.left)) ret = true;
+		if(visit(binaryPredicate.right)) ret = true;
+		return ret;
 	}
 
 	@Override
@@ -223,31 +253,39 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTFuncExpression funcExpression) {
+		Bugs.LOG.log(funcExpression.beginPosition, "function expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTNewObjectExpression exp) {
+		Bugs.LOG.log(exp.beginPosition, "object instantiation expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTOrPredicate orPredicate) {
-		return visit(orPredicate.left) && visit(orPredicate.right);
+		boolean ret = false;
+		if(visit(orPredicate.left)) ret = true;
+		if(visit(orPredicate.right)) ret = true;
+		return ret;
 	}
 
 	@Override
 	public Boolean visit(ASTRecExpression rec) {
+		Bugs.LOG.log(rec.beginPosition, "record expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTRecTupleExpression tuple) {
+		Bugs.LOG.log(tuple.beginPosition, "tuple expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTTupleExpression tuple) {
+		Bugs.LOG.log(tuple.beginPosition, "tuple expression is not allowed to appear in bit expression");
 		return false;
 	}
 
@@ -268,11 +306,13 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTRangeExpression tuple) {
+		Bugs.LOG.log(tuple.beginPosition, "range expression is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTNullType type) {
+		Bugs.LOG.log(type.beginPosition, "Null type is not allowed to appear in bit expression");
 		return false;
 	}
 
@@ -283,6 +323,7 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTNullExpression exp) {
+		Bugs.LOG.log(exp.beginPosition, "Null expression is not allowed to appear in bit expression");
 		return false;
 	}
 
@@ -293,12 +334,18 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 
 	@Override
 	public Boolean visit(ASTTupleType type) {
+		Bugs.LOG.log(type.beginPosition, "Tuple type is not allowed to appear in bit expression");
 		return false;
 	}
 
 	@Override
 	public Boolean visit(ASTUsingStatement stmt) {
 		return null;
+	}
+
+	@Override
+	public Boolean visit(ASTSizeExpression exp) {
+		return visit(exp.type);
 	}
 
 }

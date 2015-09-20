@@ -46,4 +46,8 @@ public class ASTConstantExpression extends ASTExpression {
 			return false;
 		return value == ((ASTConstantExpression)obj).value; 
 	}
+
+	public ASTConstantExpression cloneInternal() {
+		return new ASTConstantExpression(value, bitSize);
+	}
 }

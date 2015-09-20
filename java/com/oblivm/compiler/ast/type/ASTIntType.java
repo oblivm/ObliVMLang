@@ -8,7 +8,7 @@ import com.oblivm.compiler.ast.expr.ASTExpression;
 
 public class ASTIntType extends ASTType {
 
-	private ASTExpression bit;
+	public ASTExpression bit;
 	private ASTLabel lab;
 
 	public ASTExpression getBits() {

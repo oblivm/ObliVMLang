@@ -36,6 +36,10 @@ public abstract class Type {
 	public abstract Label getLabel();
 
 	public abstract boolean constructable();
+
+	public abstract boolean writable();
+
+	public abstract boolean similar(Type type);
 	
 	public boolean rawType() {
 		return false;

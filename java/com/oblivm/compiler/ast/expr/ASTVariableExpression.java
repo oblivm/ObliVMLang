@@ -43,4 +43,9 @@ public class ASTVariableExpression extends ASTExpression {
 		
 		return var.equals(((ASTVariableExpression)obj).var);
 	}
+
+	@Override
+	public ASTVariableExpression cloneInternal() {
+		return new ASTVariableExpression(var);
+	}
 }

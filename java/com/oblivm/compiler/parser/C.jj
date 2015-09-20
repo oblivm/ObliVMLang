@@ -18,6 +18,7 @@ import com.oblivm.compiler.ast.ASTFunction;
 import com.oblivm.compiler.ast.ASTFunctionDef;
 import com.oblivm.compiler.ast.ASTFunctionNative;
 import com.oblivm.compiler.ast.ASTProgram;
+import com.oblivm.compiler.ast.Position;
 import com.oblivm.compiler.ast.expr.ASTAndPredicate;
 import com.oblivm.compiler.ast.expr.ASTArrayExpression;
 import com.oblivm.compiler.ast.expr.ASTBinaryExpression;
@@ -35,6 +36,7 @@ import com.oblivm.compiler.ast.expr.ASTPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -60,7 +62,8 @@ import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTVariableType;
 import com.oblivm.compiler.ast.type.ASTVoidType;
 import com.oblivm.compiler.util.Pair;
-
+import com.oblivm.compiler.util.Helper;
+import com.oblivm.compiler.log.Bugs;
 
 public class CParser{
     ASTType __type__;
@@ -71,15 +74,18 @@ public class CParser{
 		CParser parser = null;
 		try {
 			parser = new CParser(new java.io.FileInputStream(filename));
+            parser.jj_input_stream.setTabSize(4);
 			parser.program = new ASTProgram();
 			return parser.TranslationUnit();
 		}
 		catch(java.io.FileNotFoundException e) {
-			System.out.println("Error:  File " + filename + " not found.");
-			return null;
+			Bugs.LOG.log("Error:  File " + filename + " not found.");
+			System.exit(1);
+            return null;
 		} catch (ParseException e) {
-			System.out.println("Error: Parsing Error " + e.getMessage());
-			return null;
+			Bugs.LOG.log("Error: Parsing Error " + e.getMessage());
+			System.exit(1);
+            return null;
 		}
 	}
 	
@@ -152,6 +158,7 @@ TOKEN : {
 	<ONDUMMY : "ONDUMMY"> |
 	<NULL : "null"> |
 	<PACKAGE : "package"> |
+	<SIZEOF : "sizeof"> |
 	<USING : "using">
 }
 
@@ -167,6 +174,7 @@ ASTExpression RangeAtomicExpression() :
 	ASTExpression e;
 	Token tok, tok1;
 	ASTExpression ret;
+	ASTType type;
 }
 {	
 	e = ConstantExpression() { return e; }
@@ -183,6 +191,14 @@ ASTExpression RangeAtomicExpression() :
  				ret.setEndPosition(tok1.endLine, tok1.endColumn);
  				return ret;
  			}
+ 	| tok = <SIZEOF> "(" type = Type(ASTLabel.Secure) tok1 = ")" 
+ 			{
+ 				ret = new ASTSizeExpression(type);
+ 				ret.setBeginPosition(tok.beginLine, tok.beginColumn); 
+ 				ret.setEndPosition(tok1.endLine, tok1.endColumn);
+ 				return ret;
+ 			}
+ 	 
 }
 
 ASTExpression AtomicExpression() : 
@@ -193,6 +209,7 @@ ASTExpression AtomicExpression() :
 	List<ASTExpression> bits;
 	ASTRecType rt;
 	ASTExpression ret;
+	ASTType type;
 }
 {
 	tok = <NULL> { 
@@ -203,6 +220,13 @@ ASTExpression AtomicExpression() :
 		}
 	| e = ConstantExpression() { return e; }
 	| LOOKAHEAD(2) "(" e = BIExpression() ")" { return e; }
+ 	| tok = <SIZEOF> "(" type = Type(ASTLabel.Secure) tok1 = ")" 
+ 			{
+ 				ret = new ASTSizeExpression(type);
+ 				ret.setBeginPosition(tok.beginLine, tok.beginColumn); 
+ 				ret.setEndPosition(tok1.endLine, tok1.endColumn);
+ 				return ret;
+ 			}
  	| e = VariableExpression() { var = null; bits = null; }
 		(  
 			"." v = <IDENTIFIER> { 
@@ -368,7 +392,7 @@ int Constant() :
  	n = <INTEGER_LITERAL> { return com.oblivm.compiler.util.Helper.parseInt(n.image); }
 }
 
-double FloatConstant() : 
+double FloatConstant() :
 {
 	Token n;
 }
@@ -426,6 +450,8 @@ void TypeDef() :
 	List<ASTType> inputs = null;
 	List<ASTType> var = null;
 	ASTLabel label = ASTLabel.Secure;
+	ASTNativeType nt;
+	ASTExpression e;
 }
 {
 	<TYPEDEF> v = <IDENTIFIER> { name = v.image; 
@@ -433,10 +459,14 @@ void TypeDef() :
 								 type.setBeginPosition(v.beginLine, v.beginColumn);
 								 }
     	( "@" v = <IDENTIFIER> {
-    						if(def.containsKey(v.image))
-    							type.bitVars.add(def.get(v.image));
-    						else
-								type.bitVars.add(new ASTVariableExpression(v.image, v.beginLine, v.endLine, v.beginColumn, v.endColumn)); 
+    						if(def.containsKey(v.image)) {
+    							ASTExpression exp = def.get(v.image).clone();
+    							exp.setBeginPosition(v.beginLine, v.beginColumn);
+    							exp.setEndPosition(v.endLine, v.endColumn);
+    							type.bitVars.add(exp);
+    						} else {
+								type.bitVars.add(new ASTVariableExpression(v.image, v.beginLine, v.endLine, v.beginColumn, v.endColumn));
+							} 
 							} )* 
 	    (var = TypeVariables() { type.typeVars = var; })?
 	[ { name = null; } [ v = <IDENTIFIER> { name = v.image; } { var = null; } 
@@ -444,26 +474,41 @@ void TypeDef() :
 	  "(" {inputs = new ArrayList<ASTType>(); } [tmp = Type(ASTLabel.Secure) { inputs.add(tmp); } ("," tmp = Type(ASTLabel.Secure) { inputs.add(tmp); } )*] 
 	  ")" 
 	] { type.setEndPosition(token.endLine, token.endColumn); }
-	"=" tmp = Type(ASTLabel.Secure) {
-		if(tmp instanceof ASTNativeType) {
-			for (int w = 0; w < type.bitVars.size(); ++ w) {
-				((ASTNativeType)tmp).bitVariables.add(((ASTVariableExpression)type.bitVars.get(w)).var);
-			}
-		}
-		if(inputs == null) {
-			program.typeBitVarDef.put(name, type.bitVars);
-			program.typeVarDef.put(name, type.typeVars);
-			program.typeDef.add(new Pair<String, ASTType>(name, tmp));
-		} else {
-			ASTFunctionType fty = new ASTFunctionType(type, name, inputs, true);
-			if(var != null) {
-				for(ASTType ty : var) {
-					fty.typeParameter.add(ty);
+	"=" tmp = Type(ASTLabel.Secure) 
+		{
+			if(tmp instanceof ASTNativeType) {
+				for (int w = 0; w < type.bitVars.size(); ++ w) {
+					((ASTNativeType)tmp).bitVariables.add(((ASTVariableExpression)type.bitVars.get(w)).var);
 				}
 			}
-			program.functionTypeMapping.add(new Pair<ASTFunctionType, ASTType>(fty, tmp));
-		} 
+			if(inputs == null) {
+				program.typeBitVarDef.put(name, type.bitVars);
+				program.typeVarDef.put(name, type.typeVars);
+				program.typeDef.add(new Pair<String, ASTType>(name, tmp));
+			} else {
+				ASTFunctionType fty = new ASTFunctionType(type, name, inputs, true);
+				if(var != null) {
+					for(ASTType ty : var) {
+						fty.typeParameter.add(ty);
+					}
+				}
+				program.functionTypeMapping.add(new Pair<ASTFunctionType, ASTType>(fty, tmp));
+			} 
 		}
+		[ 	"(" { 
+					if(!(tmp instanceof ASTNativeType)) {
+						Bugs.LOG.log(new Position(token.beginLine, token.beginColumn), 
+							"Constructors are only allowed for native types");
+						System.exit(1);
+					}
+					nt = (ASTNativeType)tmp;
+					nt.constructor = new ArrayList<ASTExpression>();
+				}
+				[
+					e = RangeExpression() { nt.constructor.add(e); }
+					("," e = RangeExpression() { nt.constructor.add(e); })*
+				]
+			")" ]
 	";" 
 }
 
@@ -509,9 +554,11 @@ ASTType Type(ASTLabel defaultLabel) :
 					}
 					| bitVar = <IDENTIFIER> {
 							if(def.containsKey(bitVar.image))
-								bitExp = def.get(bitVar.image);
+								bitExp = def.get(bitVar.image).clone();
 							else 
-								bitExp = new ASTVariableExpression(bitVar); 
+								bitExp = new ASTVariableExpression(bitVar);
+							bitExp.setBeginPosition(bitVar.beginLine, bitVar.beginColumn);
+							bitExp.setEndPosition(bitVar.endLine, bitVar.endColumn); 
 						} 
 					| "(" bitExp = BIExpression() ")"  
 				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
@@ -547,9 +594,11 @@ ASTType Type(ASTLabel defaultLabel) :
 					}
 					| bitVar = <IDENTIFIER> {
 							if(def.containsKey(bitVar.image))
-								bitExp = def.get(bitVar.image);
+								bitExp = def.get(bitVar.image).clone();
 							else 
-								bitExp = new ASTVariableExpression(bitVar); 
+								bitExp = new ASTVariableExpression(bitVar);
+							bitExp.setBeginPosition(bitVar.beginLine, bitVar.beginColumn);
+							bitExp.setEndPosition(bitVar.endLine, bitVar.endColumn); 
 						} 
 					| "(" bitExp = BIExpression() ")"  
 				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
@@ -585,9 +634,11 @@ ASTType Type(ASTLabel defaultLabel) :
 					}
 					| bitVar = <IDENTIFIER> {
 							if(def.containsKey(bitVar.image))
-								bitExp = def.get(bitVar.image);
+								bitExp = def.get(bitVar.image).clone();
 							else 
-								bitExp = new ASTVariableExpression(bitVar); 
+								bitExp = new ASTVariableExpression(bitVar);
+							bitExp.setBeginPosition(bitVar.beginLine, bitVar.beginColumn);
+							bitExp.setEndPosition(bitVar.endLine, bitVar.endColumn); 
 						} 
 					| "(" bitExp = BIExpression() ")"  
 				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" 
@@ -627,9 +678,11 @@ ASTType Type(ASTLabel defaultLabel) :
 		  							 }
 					| bitVar = <IDENTIFIER> {
 						if(def.containsKey(bitVar.image))
-							bitExp = def.get(bitVar.image);
+							bitExp = def.get(bitVar.image).clone();
 						else 
-							bitExp = new ASTVariableExpression(bitVar); 
+							bitExp = new ASTVariableExpression(bitVar);
+						bitExp.setBeginPosition(bitVar.beginLine, bitVar.beginColumn);
+						bitExp.setEndPosition(bitVar.endLine, bitVar.endColumn); 
 					} 
 					| "(" bitExp = BIExpression() ")" 
 				    | tok = <LOG> "(" bitExp = BIExpression() tok1 = ")" { 
@@ -798,6 +851,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 	ASTOnDummyStatement onDummyStmt;
 	Condition dumCond;
 	String alias;
+	Token tmp_tok, tmp_tok1;
 }
 {
 	(
@@ -833,53 +887,101 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			[ "=" exp = Expression() ] ";" 
 			{
 				if(exp != null) {
-					stmt.add(new ASTAssignStatement(var, exp));
+					ASTStatement st = new ASTAssignStatement(var, exp);
+					st.setBeginPosition(var.beginPosition);
+					st.setEndPosition(exp.endPosition);
+					stmt.add(st);
 				} else {
-					if (!(var instanceof ASTFuncExpression)) 
+					if (!(var instanceof ASTFuncExpression)) {
+						// TODO report bugs 
 						throw new RuntimeException("Function call required!");
-					else
-						stmt.add(new ASTFuncStatement((ASTFuncExpression)var));
+					} else {
+						ASTStatement st = new ASTFuncStatement((ASTFuncExpression)var);
+						st.setBeginPosition(var.beginPosition);
+						st.setEndPosition(var.endPosition);
+						stmt.add(st);
+					}
 				}
 			} 
-		| <IF> "(" cond = Predicate() ")" { ifStmt = new ASTIfStatement(cond); } 
-			ifStmt.trueBranch = Statement(func) [ LOOKAHEAD(2) <ELSE> ifStmt.falseBranch = Statement(func) ]
+		| tmp_tok = <IF> "(" cond = Predicate() ")" { 
+												ifStmt = new ASTIfStatement(cond);
+												ifStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
+										  } 
+			ifStmt.trueBranch = Statement(func) {
+													ifStmt.setEndPosition(Helper.last(ifStmt.trueBranch).endPosition);
+												}
+			[ LOOKAHEAD(2) <ELSE> ifStmt.falseBranch = Statement(func) {
+																			ifStmt.setEndPosition(Helper.last(ifStmt.falseBranch).endPosition);
+																	   } 
+			]
 			{ stmt.add(ifStmt); }
-		| <WHILE> "(" cond = Predicate() ")" { whileStmt = new ASTWhileStatement(cond); } 
+		| tmp_tok = <WHILE> "(" cond = Predicate() ")" 	{ 
+															whileStmt = new ASTWhileStatement(cond);
+															whileStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn); 
+														} 
 			whileStmt.body = Statement(func)
-			{ stmt.add(whileStmt); }
-		| <BWHILE> "(" bound = RangeExpression() ")" "(" cond = Predicate() ")" { bLoopStmt = new ASTBoundedWhileStatement(cond, bound); } 
+			{ 
+				whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
+				stmt.add(whileStmt); 
+			}
+		| tmp_tok = <BWHILE> "(" bound = RangeExpression() ")" "(" cond = Predicate() ")" 
+				{ 
+					bLoopStmt = new ASTBoundedWhileStatement(cond, bound);
+					bLoopStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
+				} 
 			bLoopStmt.body = Statement(func)
-			{ stmt.add(bLoopStmt); }
-		| <FOR> "(" init = Statement(func) cond = Predicate() ";"
-			{ incre = new ArrayList<ASTStatement>(); } 
+			{ 
+				stmt.add(bLoopStmt);
+				bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition); 
+			}
+		| tmp_tok = <FOR> "(" init = Statement(func) cond = Predicate() ";"
+			{ 
+				incre = new ArrayList<ASTStatement>(); 
+			} 
 			var = Expression() "=" exp = Expression()
-			{ incre.add(new ASTAssignStatement(var, exp)); }
+			{ 
+				incre.add(new ASTAssignStatement(var, exp)); 
+			}
 			")" 
 			{ 
 				stmt.addAll(init); 
-				whileStmt = new ASTWhileStatement(cond); 
+				whileStmt = new ASTWhileStatement(cond);
+				whileStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn); 
 			} 
 			whileStmt.body = Statement(func)
 			{
+				whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
 				whileStmt.body.addAll(incre);
 				stmt.add(whileStmt); 
 			}
-		| <BFOR> "(" bound = RangeExpression() ")" "(" init = Statement(func) cond = Predicate() ";"
-			{ incre = new ArrayList<ASTStatement>(); } 
+		| tmp_tok = <BFOR> "(" bound = RangeExpression() ")" "(" init = Statement(func) cond = Predicate() ";"
+			{ 
+				incre = new ArrayList<ASTStatement>(); 
+			} 
 			[ var = Expression() "=" exp = Expression()
-			{ incre.add(new ASTAssignStatement(var, exp)); } ]
+				{ 
+					incre.add(new ASTAssignStatement(var, exp)); 
+				} 
+			]
 			")" 
 			{ 
 				stmt.addAll(init); 
-				bLoopStmt = new ASTBoundedWhileStatement(cond, bound); 
+				bLoopStmt = new ASTBoundedWhileStatement(cond, bound);
+				bLoopStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
 			} 
 			bLoopStmt.body = Statement(func)
 			{
+				bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition); 
 				bLoopStmt.body.addAll(incre);
 				stmt.add(bLoopStmt); 
 			}
-		| <RETURN> exp = Expression() ";" { stmt.add(new ASTReturnStatement(exp)); }
-		| "{" stmt = Statements(func) "}"
+		| tmp_tok = <RETURN> exp = Expression() ";" 	{
+															ASTStatement st = new ASTReturnStatement(exp);
+															st.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
+															st.setEndPosition(exp.endPosition);  
+															stmt.add(st); 
+														}
+		| tmp_tok = "{" stmt = Statements(func) tmp_tok1 = "}"	
 		| ( <ONREAL> { dumCond = Condition.OnReal; } | <ONDUMMY> { dumCond = Condition.OnDummy; } )
 			{ onDummyStmt = new ASTOnDummyStatement(dumCond); } 
 			"(" { alias = null; } [ LOOKAHEAD(2) v = <IDENTIFIER> "=" { alias = v.image; } ]
@@ -893,27 +995,39 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			")" "{"
 				onDummyStmt.body = Statements(func)
 			"}" { stmt.add(onDummyStmt); }
-		| <USING> { ASTUsingStatement ustmt = new ASTUsingStatement(); } 
+		| tmp_tok = <USING> { 
+								ASTUsingStatement ustmt = new ASTUsingStatement();
+								ustmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn); 
+							} 
 			"(" v = <IDENTIFIER> "=" exp = AtomicExpression() { ustmt.use.add(new Pair<String, ASTExpression>(v.image, exp)); }
 			   ("," v = <IDENTIFIER> "=" exp = AtomicExpression() { ustmt.use.add(new Pair<String, ASTExpression>(v.image, exp)); })*
 			")" "{"
 				ustmt.body = Statements(func)
-			"}" { stmt.add(ustmt); }
+			tmp_tok = "}" 	{
+								ustmt.setEndPosition(tmp_tok.endLine, tmp_tok.endColumn);
+								stmt.add(ustmt); 
+							}
 	)
-	{ return stmt; }
+	{ 
+		return stmt; 
+	}
 }
 
 ASTExpression Expression() : 
 {
-	ASTExpression e, e2;
+	ASTExpression e, e2, old_e;
 }
 {
 	e = BIExpression() ("," e2 = BIExpression() 
 	{ 
 		if (!(e instanceof ASTTupleExpression)) {
+			old_e = e;
 			e = new ASTTupleExpression(e, e2);
+			e.setBeginPosition(old_e.beginPosition);
+			e.setEndPosition(e2.endPosition);
 		} else {
 			((ASTTupleExpression)e).exps.add(e2);
+			e.setEndPosition(e2.endPosition);
 		}
 	})*
 	{ return e; }
@@ -921,21 +1035,36 @@ ASTExpression Expression() :
 
 ASTExpression BIExpression() : 
 {
-	ASTExpression e;
+	ASTExpression e, old_e;
 	ASTExpression n;
 }
 {
 	e = ShiftExpression() 
 		(
-			"&" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.AND, n); }
-			| "|" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.OR, n); }
-			| "^" n = ShiftExpression() { e = new ASTBinaryExpression(e, BOP.XOR, n); }
+			"&" n = ShiftExpression() 	{
+											old_e = e; 
+											e = new ASTBinaryExpression(old_e, BOP.AND, n);
+											e.setBeginPosition(old_e.beginPosition); 
+											e.setEndPosition(n.beginPosition); 
+										}
+			| "|" n = ShiftExpression() { 
+											old_e = e; 
+											e = new ASTBinaryExpression(old_e, BOP.OR, n); 
+											e.setBeginPosition(old_e.beginPosition); 
+											e.setEndPosition(n.beginPosition); 
+										}
+			| "^" n = ShiftExpression() { 
+											old_e = e; 
+											e = new ASTBinaryExpression(old_e, BOP.XOR, n); 
+											e.setBeginPosition(old_e.beginPosition); 
+											e.setEndPosition(n.beginPosition); 
+										}
 		)* { return e; }
 }
 
 ASTExpression ShiftExpression() : 
 {
-	ASTExpression e;
+	ASTExpression e, old_e;
 	ASTExpression n;
 }
 {
@@ -943,12 +1072,18 @@ ASTExpression ShiftExpression() :
 		(
 			"<<" n = AdditiveExpression() 
 			{ 
+				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHL, n); 
+				e.setBeginPosition(old_e.beginPosition); 
+				e.setEndPosition(n.beginPosition); 
 			}
 			| 
 			">>" n = AdditiveExpression()
 			{ 
+				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHR, n); 
+				e.setBeginPosition(old_e.beginPosition); 
+				e.setEndPosition(n.beginPosition); 
 			}
 		)* { return e; }
 }
@@ -956,21 +1091,36 @@ ASTExpression ShiftExpression() :
 
 ASTExpression RangeExpression() :
 {
-	ASTExpression e;
+	ASTExpression e, old_e;
 	ASTExpression n;
 }
 {
 	e = RangeShiftExpression()
 	(
-		"&" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.AND, n); }
-		| "|" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.OR, n); }
-		| "^" n = RangeShiftExpression() { e = new ASTBinaryExpression(e, BOP.XOR, n); }
+		"&" n = RangeShiftExpression() 		{ 
+												old_e = e; 
+												e = new ASTBinaryExpression(e, BOP.AND, n); 
+												e.setBeginPosition(e.beginPosition); 
+												e.setEndPosition(n.beginPosition); 
+											}
+		| "|" n = RangeShiftExpression() 	{ 
+												old_e = e; 
+												e = new ASTBinaryExpression(e, BOP.OR, n); 
+												e.setBeginPosition(old_e.beginPosition); 
+												e.setEndPosition(n.beginPosition); 
+											}
+		| "^" n = RangeShiftExpression() 	{ 
+												old_e = e; 
+												e = new ASTBinaryExpression(e, BOP.XOR, n); 
+												e.setBeginPosition(old_e.beginPosition); 
+												e.setEndPosition(n.beginPosition); 
+											}
 	)* { return e; }
 }
 
 ASTExpression RangeShiftExpression() : 
 {
-	ASTExpression e;
+	ASTExpression e, old_e;
 	ASTExpression n;
 }
 {
@@ -978,12 +1128,18 @@ ASTExpression RangeShiftExpression() :
 		(
 			"<<" n = RangeAdditiveExpression() 
 			{ 
+				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHL, n); 
+				e.setBeginPosition(e.beginPosition); 
+				e.setEndPosition(n.beginPosition); 
 			}
 			| 
 			">>" n = RangeAdditiveExpression()
 			{ 
+				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHR, n); 
+				e.setBeginPosition(e.beginPosition); 
+				e.setEndPosition(n.beginPosition); 
 			}
 		)* { return e; }
 }
@@ -992,10 +1148,23 @@ ASTExpression ConstantExpression() :
 {
 	int n;
 	double v;
+	ASTExpression st;
 }
 {
-	n = Constant() { return new ASTConstantExpression(n); }
-	| v = FloatConstant() { return new ASTFloatConstantExpression(v); }
+	n = Constant() 
+		{ 
+			st = new ASTConstantExpression(n);
+			st.setBeginPosition(token.beginLine, token.beginColumn);
+			st.setEndPosition(token.endLine, token.endColumn);
+			return st; 
+		}
+	| v = FloatConstant() 
+		{ 
+			st = new ASTFloatConstantExpression(v);
+			st.setBeginPosition(token.beginLine, token.beginColumn);
+			st.setEndPosition(token.endLine, token.endColumn);
+			return st; 
+		}
 }
 
 ASTExpression VariableExpression() : 
@@ -1005,25 +1174,49 @@ ASTExpression VariableExpression() :
 {
 	v = <IDENTIFIER> 
 	{ 
-		if (def.containsKey(v.image))
-			return def.get(v.image);
-		else
-			return new ASTVariableExpression(v.image); }
+		if (def.containsKey(v.image)) {
+			ASTExpression exp = def.get(v.image).clone();
+			exp.setBeginPosition(v.beginLine, v.beginColumn);
+			exp.setEndPosition(v.endLine, v.endColumn);
+			return exp;
+		} else {
+			ASTExpression exp = new ASTVariableExpression(v.image);
+			exp.setBeginPosition(v.beginLine, v.beginColumn);
+			exp.setEndPosition(v.endLine, v.endColumn);
+			return exp;
+		}
+	}
 	|
-	<LOG>
+	v = <LOG>
 	{
-		return new ASTVariableExpression("log");
+		ASTExpression exp = new ASTVariableExpression("log");
+		exp.setBeginPosition(v.beginLine, v.beginColumn);
+		exp.setEndPosition(v.endLine, v.endColumn);
+		return exp;
 	}
 }
 
 ASTExpression AdditiveExpression() : 
 {
-	ASTExpression e1, e2;
+	ASTExpression e1, e2, old_e;
 }
 {
 	e1 = MultiplictiveExpression() 
-	( "+" e2 = MultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.ADD, e2); } 
-	| "-" e2 = MultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); } )*
+	( "+" e2 = MultiplictiveExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.ADD, e2);
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "-" e2 = MultiplictiveExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	)*
 	{
 		return e1;
 	}
@@ -1032,12 +1225,25 @@ ASTExpression AdditiveExpression() :
 
 ASTExpression RangeAdditiveExpression() : 
 {
-	ASTExpression e1, e2;
+	ASTExpression e1, e2, old_e;
 }
 {
 	e1 = RangeMultiplictiveExpression() 
-	( "+" e2 = RangeMultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.ADD, e2); } 
-	| "-" e2 = RangeMultiplictiveExpression() { e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); } )*
+	( "+" e2 = RangeMultiplictiveExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.ADD, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "-" e2 = RangeMultiplictiveExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.SUB, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	)*
 	{
 		return e1;
 	}
@@ -1046,13 +1252,32 @@ ASTExpression RangeAdditiveExpression() :
 
 ASTExpression MultiplictiveExpression() : 
 {
-	ASTExpression e1, e2;
+	ASTExpression e1, e2, old_e;
 }
 {
 	e1 = AtomicExpression() 
-	( "*" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); } 
-	| "/" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); } 
-	| "%" e2 = AtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); } )*
+	( "*" e2 = AtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "/" e2 = AtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "%" e2 = AtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	)*
 	{
 		return e1;
 	}
@@ -1060,13 +1285,32 @@ ASTExpression MultiplictiveExpression() :
 
 ASTExpression RangeMultiplictiveExpression() : 
 {
-	ASTExpression e1, e2;
+	ASTExpression e1, e2, old_e;
 }
 {
 	e1 = RangeAtomicExpression() 
-	( "*" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); } 
-	| "/" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); } 
-	| "%" e2 = RangeAtomicExpression() { e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); } )*
+	( "*" e2 = RangeAtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.MUL, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "/" e2 = RangeAtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.DIV, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	| "%" e2 = RangeAtomicExpression() 
+		{ 
+			old_e = e1;
+			e1 = new ASTBinaryExpression(e1, BOP.MOD, e2); 
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
+	)*
 	{
 		return e1;
 	}
@@ -1082,13 +1326,17 @@ ASTPredicate Predicate() :
 
 ASTPredicate OrPredicate() : 
 {
-	ASTPredicate e1, e2 = null;
+	ASTPredicate e1, e2 = null, old_e;
 }
 {
 	e1 = AndPredicate() ( LOOKAHEAD(2) "||" e2 = OrPredicate() 
 	{
-		if(e2 != null)
-			e1 = new ASTOrPredicate(e1, e2); 
+		if(e2 != null) {
+			old_e = e1;
+			e1 = new ASTOrPredicate(e1, e2);
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
 	} ) *
 	{
 		return e1;
@@ -1098,13 +1346,17 @@ ASTPredicate OrPredicate() :
 
 ASTPredicate AndPredicate() : 
 {
-	ASTPredicate e1, e2 = null;
+	ASTPredicate e1, e2 = null, old_e;
 }
 {
 	e1 = AtomicPredicate() ( LOOKAHEAD(2) "&&" e2 = AndPredicate() 
 	{
-		if(e2 != null)
-			e1 = new ASTAndPredicate(e1, e2); 
+		if(e2 != null) {
+			old_e = e1;
+			e1 = new ASTAndPredicate(e1, e2);
+			e1.setBeginPosition(old_e.beginPosition);
+			e1.setEndPosition(e2.endPosition); 
+		} 
 	} )*
 	{ return e1; }
 }
@@ -1140,5 +1392,10 @@ ASTPredicate BinaryPredicate() :
 	| "<=" { op = REL_OP.LET; }
 		e2 = BIExpression() 
 	) 
-	{ return new ASTBinaryPredicate(e1, op, e2); }
+	{ 
+		ASTPredicate p = new ASTBinaryPredicate(e1, op, e2);
+		p.setBeginPosition(e1.beginPosition);
+		p.setEndPosition(e2.endPosition);
+		return p;
+	}
 }

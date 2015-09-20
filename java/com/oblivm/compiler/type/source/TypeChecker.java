@@ -14,6 +14,7 @@ import com.oblivm.compiler.ast.ASTFunction;
 import com.oblivm.compiler.ast.ASTFunctionDef;
 import com.oblivm.compiler.ast.ASTProgram;
 import com.oblivm.compiler.ast.DefaultStatementExpressionVisitor;
+import com.oblivm.compiler.ast.Position;
 import com.oblivm.compiler.ast.expr.ASTAndPredicate;
 import com.oblivm.compiler.ast.expr.ASTArrayExpression;
 import com.oblivm.compiler.ast.expr.ASTBinaryExpression;
@@ -31,6 +32,7 @@ import com.oblivm.compiler.ast.expr.ASTOrPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -54,6 +56,7 @@ import com.oblivm.compiler.ast.type.ASTRecType;
 import com.oblivm.compiler.ast.type.ASTTupleType;
 import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTVariableType;
+import com.oblivm.compiler.log.Bugs;
 import com.oblivm.compiler.util.Pair;
 
 public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List<ASTType>> {
@@ -61,6 +64,7 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	public TypeResolver resolver = new TypeResolver();
 	AssignableChecker ac = new AssignableChecker();
 	BitChecker bc = new BitChecker();
+	BitInference bi = new BitInference();
 	AffineTypeChecker atc = AffineTypeChecker.get();
 	BudgetConsumer bcon = new BudgetConsumer();
 	
@@ -79,8 +83,12 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		resolver.copy = true;
 		this.program = program;
 
-		if(!bc.check(program))
-			return false;
+		if(!bc.check(program)) {
+			Bugs.LOG.log("Miss usage of bit variables!");
+			System.exit(1);
+		}
+		
+		bi.check(program);
 		
 		variableMapping = new HashMap<String, ASTType>();
 
@@ -92,7 +100,11 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			}
 		}
 		
-		for(ASTFunction func : program.functionDef)
+		for(ASTFunction func : program.functionDef) {
+			if(func.typeVariables != null && func.typeVariables.size() > 0) {
+				Bugs.LOG.log("Type parameters in function definintion are not supported yet.");
+				return false;
+			}
 			if(func instanceof ASTFunctionDef) {
 				this.function = ((ASTFunctionDef)func);
 				Map<String, ASTType> old = variableMapping;
@@ -135,11 +147,12 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 				}
 				for(ASTStatement stmt : function.body)
 					if(!visit(stmt)) {
-						visit(stmt);
+//						visit(stmt);
 						return false;
 					}
 				variableMapping = old;
 			}
+		}
 		return true;
 	}
 
@@ -165,32 +178,44 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		List<ASTType> expTypes = visit(assignStatement.expr);
 		List<ASTType> varTypes = visit(assignStatement.var);
 		if(expTypes == null || varTypes == null) {
-			System.err.println("Statement:\n"+assignStatement+"\ncannot type check!");
-			visit(assignStatement.expr);
-			visit(assignStatement.var);
+//			Bugs.LOG.log(assignStatement.beginPosition, assignStatement+" cannot type check!");
+//			visit(assignStatement.expr);
+//			visit(assignStatement.var);
 			return false;
 		}
 		if(varTypes.size() != expTypes.size() && expTypes.size() != 1) {
-			System.err.println("Number of expressions are not matched in: "+assignStatement);
+			Bugs.LOG.log(assignStatement.beginPosition, "Number of expressions are not matched in: "+assignStatement);
 			return false;
 		}
 		for(ASTType ty : varTypes) {
 			if(!ASTLabelTypeComparator.get().compare(secureContext, ty)) {
-				System.err.println("Cannot assign to type " + ty.shortName() + " in the secure context");
+				Bugs.LOG.log(assignStatement.beginPosition, "Cannot assign to type " + ty.shortName() + " in the secure context");
 				return false;
 			}
 		}
 		if(expTypes.size() == 1 && varTypes.size() != 1) {
 			// Handle split statement here
-			if(!(expTypes.get(0) instanceof ASTRecType))
+			if(!(expTypes.get(0) instanceof ASTRecType)) {
+				Bugs.LOG.log(assignStatement.beginPosition, 
+						"assigning more expressions (the assigned variable must be of record type)");
 				return false;
-			ASTRecType ty = (ASTRecType)expTypes.get(0);
-			if(varTypes.size() != ty.fields.size())
-				return false;
-			for(int i=0; i<varTypes.size(); ++i) {
-				if(!ty.fieldsType.get(ty.fields.get(i)).canFlowTo(varTypes.get(i)))
-					return false;
 			}
+			ASTRecType ty = (ASTRecType)expTypes.get(0);
+			if(varTypes.size() != ty.fields.size()) {
+				Bugs.LOG.log(assignStatement.beginPosition, 
+						"assigning more or less expressions (number expressions are different from number of fields");
+				return false;
+			}
+			boolean hasBugs = false;
+			for(int i=0; i<varTypes.size(); ++i) {
+				if(!ty.fieldsType.get(ty.fields.get(i)).canFlowTo(varTypes.get(i))) {
+					Bugs.LOG.log(assignStatement.beginPosition, 
+							"values of type "+ty.fieldsType.get(ty.fields.get(i))+" cannot to flow to type "+varTypes.get(i));
+					hasBugs = true;
+				}
+			}
+			if(hasBugs)
+				return false;
 			ASTExpression[] exps = new ASTExpression[ty.fields.size()];
 			for(int i=0; i<exps.length; ++i)
 				exps[i] = new ASTVariableExpression(ty.fields.get(i));
@@ -245,8 +270,9 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		ASTType ty = assertOne(visit(ifStatement.cond));
 		bcon.process(ty, ifStatement.cond);
 		if(!ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Pub).canFlowTo(ty)) {
-			visit(ifStatement.cond);
-			System.err.println("Condition: "+ifStatement.cond+" is not a boolean!");
+//			visit(ifStatement.cond);
+			Bugs.LOG.log(ifStatement.cond.beginPosition, 
+					"if guard "+ifStatement.cond+" needs to be a boolean!");
 			return false;
 		}
 		ResourceBudget oldBudget = this.budget;
@@ -254,8 +280,8 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		secureContext = secureContext.meet(ty.getLabel());
 		for(ASTStatement stmt : ifStatement.trueBranch)
 			if(!visit(stmt)) {
-				System.err.println(stmt+" cannot type check!");
-				visit(stmt);
+//				Bugs.LOG.log(stmt.beginPosition, stmt.toString()+" cannot type check!");
+//				visit(stmt);
 				secureContext = old;
 				return false;
 			}
@@ -263,8 +289,8 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		setBudget(oldBudget);
 		for(ASTStatement stmt : ifStatement.falseBranch)
 			if(!visit(stmt)) {
-				System.err.println(stmt+" cannot type check!");
-				visit(stmt);
+//				Bugs.LOG.log(stmt.beginPosition, stmt.toString()+" cannot type check!");
+//				visit(stmt);
 				secureContext = old;
 				return false;
 			}
@@ -284,22 +310,43 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	public Boolean visit(ASTWhileStatement whileStatement) {
 		ResourceBudget oldBudget = this.budget.clone();
 		ASTType ty = assertOne(visit(whileStatement.cond));
-		if(secureContext == ASTLabel.Secure || ty.getLabel() == ASTLabel.Secure) {
-			System.err.println("Secret bound can appear only in bounded loop");
+		if(secureContext == ASTLabel.Secure) {
+			Bugs.LOG.log(whileStatement.beginPosition, 
+					"loop cannot appear in high secure context");
+			return false;
+		}
+		if(ty.getLabel() == ASTLabel.Secure) {
+			Bugs.LOG.log(whileStatement.beginPosition, 
+					"Secret bound can appear only in bounded loop");
 			return false;
 		}
 		// TODO handle case if context=Alice/Bob or label = Alice/Bob
-		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Pub)))
+		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Pub))) {
+			Bugs.LOG.log(whileStatement.cond.beginPosition, 
+					"loop guard "+whileStatement.cond+" needs to be a boolean!");
 			return false;
+		}
 		for(ASTStatement stmt : whileStatement.body)
 			if(!visit(stmt)) {
-				System.err.println(stmt+" cannot type check!");
-				visit(stmt);
+//				System.err.println(stmt+" cannot type check!");
+//				visit(stmt);
+				Bugs.LOG.log(stmt.beginPosition, "statement cannot type check!");
 				return false;
 			}
 		if(!oldBudget.equal(budget)) {
-			System.err.println("While statement repeatedly consume affine type variables");
-			oldBudget.equal(budget);
+			Set<String> set = oldBudget.difference(budget);
+			StringBuffer sb = new StringBuffer();
+			sb.append("{");
+			boolean first = true;
+			for(String s : set) {
+				if(first) first = false;
+				else sb.append(", ");
+				sb.append(s);
+			}
+			sb.append("}");
+			Bugs.LOG.log(whileStatement.beginPosition, 
+					"While statement repeatedly consume affine type variables "+sb.toString());
+//			oldBudget.equal(budget);
 			return false;
 		}
 		return true;
@@ -310,27 +357,43 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		ResourceBudget oldBudget = budget.clone();
 		ASTType ty = assertOne(visit(whileStatement.cond));
 		bcon.process(ty, whileStatement.cond);
-		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure)))
+		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure))) {
+			Bugs.LOG.log(whileStatement.cond.beginPosition,
+					"loop's guard must be a boolean value");
 			return false;
+		}
 		ASTLabel old = secureContext;
 		secureContext = ASTLabel.Secure;
 		ty = assertOne(visit(whileStatement.bound));
 		if(ty.getLabel() != ASTLabel.Pub) {
-			System.err.println("Bound in a bounded loop must be a public integer value");
+			Bugs.LOG.log(whileStatement.bound.beginPosition,
+					"Bound in a bounded loop must be a public integer value");
 			return false;
 		}
 		ResourceBudget afterBudget = budget.clone();
 		for(ASTStatement stmt : whileStatement.body)
 			if(!visit(stmt)) {
-				System.err.println(stmt+" cannot type check!");
-				visit(stmt);
+//				System.err.println(stmt+" cannot type check!");
+//				visit(stmt);
+				Bugs.LOG.log(stmt.beginPosition, "statement cannot type check!");
 				secureContext = old;
 				return false;
 			}
 		secureContext = old;
 		if(!budget.equal(oldBudget)) {
 			setBudget(afterBudget);
-			System.err.println("While loop repeatedly use affine type variables");
+			Set<String> set = oldBudget.difference(budget);
+			StringBuffer sb = new StringBuffer();
+			sb.append("{");
+			boolean first = true;
+			for(String s : set) {
+				if(first) first = false;
+				else sb.append(", ");
+				sb.append(s);
+			}
+			sb.append("}");
+			Bugs.LOG.log(whileStatement.beginPosition, 
+					"While statement repeatedly consume affine type variables "+sb.toString());
 			return false;
 		}
 		return true;
@@ -340,13 +403,23 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	@Override
 	public List<ASTType> visit(ASTArrayExpression arrayExpression) {
 		ASTType ty = assertOne(visit(arrayExpression.var));
-		if(!(ty instanceof ASTArrayType))
+		if(!(ty instanceof ASTArrayType)) {
+			Bugs.LOG.log(arrayExpression.var.beginPosition, "cannot get the type of "+arrayExpression.var);
 			return null;
+		}
 		ASTArrayType type = (ASTArrayType)ty;
 		ty = assertOne(visit(arrayExpression.indexExpr));
-		arrayExpression.type = type.type; 
-		if(!(ty instanceof ASTIntType) || !ty.getLabel().less(type.lab))
+		arrayExpression.type = type.type;
+		if(!(ty instanceof ASTIntType)) {
+			Bugs.LOG.log(arrayExpression.indexExpr.beginPosition, 
+					"array index must be of int type");
 			return null;
+		}
+		if(!ty.getLabel().less(type.lab)) {
+			Bugs.LOG.log(arrayExpression.indexExpr.beginPosition, 
+					"cannot use secret index for a non-ORAM array");
+			return null;
+		}
 		return buildOne(type.type);
 	}
 
@@ -356,21 +429,30 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		if(ty instanceof ASTIntType) {
 			ASTIntType ty1 = (ASTIntType)ty;
 			ty = assertOne(visit(binaryExpression.right));
-			if(!(ty instanceof ASTIntType))
+			if(!(ty instanceof ASTIntType)) {
+				Bugs.LOG.log(binaryExpression.right.beginPosition, 
+						"binary operation cannot be operated between an int value and a non-int value");
 				return null;
+			}
 			ASTIntType ty2 = (ASTIntType)ty;
 			binaryExpression.type = ASTIntType.get(ty1.getBits(), ty1.getLabel().meet(ty2.getLabel())); 
 			return buildOne(binaryExpression.type);
 		} else if (ty instanceof ASTFloatType) {
 			ASTFloatType ty1 = (ASTFloatType)ty;
 			ty = assertOne(visit(binaryExpression.right));
-			if(!(ty instanceof ASTFloatType))
+			if(!(ty instanceof ASTFloatType)) {
+				Bugs.LOG.log(binaryExpression.left.beginPosition, 
+						"binary operation can be operated only between a float value and a non-float value");
 				return null;
+			}
 			ASTFloatType ty2 = (ASTFloatType)ty;
 			binaryExpression.type = ASTFloatType.get(ty1.getBits(), ty1.getLabel().meet(ty2.getLabel())); 
 			return buildOne(binaryExpression.type);
-		} else
+		} else {
+			Bugs.LOG.log(binaryExpression.right.beginPosition, 
+					"binary operation can be operated only between int values or float values");
 			return null;
+		}
 	}
 
 	@Override
@@ -391,8 +473,13 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			if(this.variableMapping.get(name) instanceof ASTFunctionType) {
 				funcExpression.baseType = null;
 				ASTFunctionType type = (ASTFunctionType)this.variableMapping.get(name);
+				if(this.secureContext == ASTLabel.Secure && !type.isPhantom) {
+					Bugs.LOG.log(funcExpression.beginPosition, 
+							"cannot call non-phantom function in a high secure context");
+					return null;
+				}
 				if(type.inputTypes.size() != exp.inputs.size()) {
-					System.err.println("input numbers mis-match in "+funcExpression);
+					Bugs.LOG.log(funcExpression.beginPosition, "numbers of inputs mis-match");
 					return null;
 				}
 				int tpn = 0;
@@ -400,7 +487,7 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 				int tvn = 0;
 				if(funcExpression.typeVars != null) tvn = funcExpression.typeVars.size();
 				if(tpn != tvn) {
-					System.err.println("numbers of type parameters mis-match in "+funcExpression);
+					Bugs.LOG.log(funcExpression.beginPosition, "numbers of type parameters mis-match");
 					return null;
 				}
 				resolver.typeVars = new HashMap<String, ASTType>();
@@ -421,7 +508,8 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					}
 				}
 				if(funcExpression.bitParameters.size() != type.bitParameter.size()) {
-					System.err.println("numbers of bit parameters mis-match in "+funcExpression);
+					Bugs.LOG.log(funcExpression.beginPosition, 
+							"numbers of bit parameters mis-match");
 					return null;
 				}
 				resolver.bitVars = new HashMap<String, ASTExpression>();
@@ -429,11 +517,13 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					resolver.bitVars.put(type.bitParameter.get(i), funcExpression.bitParameters.get(i));
 				}
 				for(int i=0; i<type.inputTypes.size(); ++i) {
-//					System.out.println(funcExpression);
 					ASTType t = assertOne(visit(exp.inputs.get(i).right));
 					ASTType targetType = resolver.visit(type.inputTypes.get(i)); 
-					if(!t.canFlowTo(targetType))
+					if(!t.canFlowTo(targetType)) {
+						Bugs.LOG.log(exp.inputs.get(i).right.beginPosition,
+								"cannot coerce the provided input to the target type");
 						return null;
+					}
 					funcExpression.inputTypes.add(targetType);
 					
 				}
@@ -443,13 +533,21 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			for(ASTFunction func : program.functionDef) {
 				if(func.name.equals(name) && func.baseType == null) {
 					funcExpression.baseType = null;
-					if(func.bitParameter.size() != funcExpression.bitParameters.size())
-						return null;
-					if(func.typeVariables.size() != funcExpression.typeVars.size()) {
+					if(func.bitParameter.size() != funcExpression.bitParameters.size()) {
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"numbers of bit parameters mis-match");
 						return null;
 					}
-					if(func.inputVariables.size() != exp.inputs.size())
+					if(func.typeVariables.size() != funcExpression.typeVars.size()) {
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"numbers of type variables mis-match");
 						return null;
+					}
+					if(func.inputVariables.size() != exp.inputs.size()) {
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"numbers of input variables mis-match");
+						return null;
+					}
 					
 					resolver.typeVars = new HashMap<String, ASTType>();
 					resolver.bitVars = new HashMap<String, ASTExpression>();
@@ -461,12 +559,20 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					}
 
 					obj.type = resolver.visit(func.getType());
+					if(this.secureContext == ASTLabel.Secure && !func.getType().isPhantom) {
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"cannot call non-phantom function in a high secure context");
+						return null;
+					}
 
 					for(int i=0; i<func.inputVariables.size(); ++i) {
 						ASTType t = assertOne(visit(exp.inputs.get(i).right));
 						ASTType ty = resolver.visit(func.inputVariables.get(i).left);
-						if(!t.canFlowTo(ty))
+						if(!t.canFlowTo(ty)) {
+							Bugs.LOG.log(exp.inputs.get(i).right.beginPosition,
+									"cannot coerce the provided input to the target type");
 							return null;
+						}
 						funcExpression.inputTypes.add(ty);
 					}
 					funcExpression.type = resolver.visit(func.returnType);
@@ -480,13 +586,38 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			String name = recObj.field;
 			ASTType baseType = assertOne(visit(recObj.base));
 			funcExpression.baseType = baseType;
-			if(baseType == null)
+			if(baseType == null) {
+				Bugs.LOG.log(recObj.base.beginPosition, "unknown object type");
 				return null;
+			}
 			for(ASTFunction func : program.functionDef) {
 				if(func.name.equals(name) && func.baseType.instance(baseType)) {
-					if(func.inputVariables.size() != exp.inputs.size()) 
-							// Deprecated + ((func.isDummy && !(func instanceof ASTFunctionNative)) ? 1 : 0))
+					if(func.inputVariables.size() != exp.inputs.size()) { 
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"numbers of input variables mis-match");
 						return null;
+					}
+					if(func.typeVariables != null && func.typeVariables.size() != 0) {
+						if(funcExpression.typeVars == null ||
+								func.typeVariables.size() != funcExpression.typeVars.size()) {
+							Bugs.LOG.log(funcExpression.beginPosition, 
+									"numbers of type variables mis-match");
+							return null;
+						}
+					} else {
+						if(funcExpression.typeVars != null &&
+								0 != funcExpression.typeVars.size()) {
+							Bugs.LOG.log(funcExpression.beginPosition, 
+									"numbers of type variables mis-match");
+							return null;
+						}
+					}
+					if(this.secureContext == ASTLabel.Secure && !func.getType().isPhantom) {
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"cannot call non-phantom function in a high secure context");
+						return null;
+					}
+
 					resolver.typeVars = new HashMap<String, ASTType>();
 					resolver.bitVars = new HashMap<String, ASTExpression>();
 					if(this.function.baseType instanceof ASTRecType) {
@@ -502,7 +633,8 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 							resolver.bitVars.put(vt.var, vt);
 						}
 					}
-					// The following code block looks weird
+					
+					// The following code block looks weird, but should be correct
 					if(func.baseType instanceof ASTRecType) {
 						ASTRecType rt = (ASTRecType)func.baseType;
 						if(rt.typeVariables != null) {
@@ -517,10 +649,13 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 						}
 					}
 					// code block ends
+					
 					if(exp.bitParameters.size() != func.bitParameter.size()) {
-						System.err.println("The numbers of function's bit parameters do not match.");
+						Bugs.LOG.log(funcExpression.beginPosition, 
+								"The numbers of function's bit parameters do not match.");
 						return null;
 					}
+					
 					for(int i=0; i<exp.bitParameters.size(); ++i) {
 						resolver.bitVars.put(func.bitParameter.get(i), exp.bitParameters.get(i));
 					}
@@ -529,8 +664,9 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 						ASTType t = assertOne(visit(exp.inputs.get(i).right));
 						ASTType ty = resolver.visit(func.inputVariables.get(i).left); 
 						if(!t.canFlowTo(ty)) {
-							t.canFlowTo(resolver.visit(func.inputVariables.get(i).left));
-							System.err.println("Input type doesn't match!");
+//							t.canFlowTo(resolver.visit(func.inputVariables.get(i).left));
+							Bugs.LOG.log(exp.inputs.get(i).right.beginPosition,
+									"cannot coerce the provided input to the target type");
 							return null;
 						}
 						funcExpression.inputTypes.add(ty);
@@ -539,9 +675,12 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					return buildOne(funcExpression.type);
 				}
 			}
+			Bugs.LOG.log(funcExpression.beginPosition, 
+					"unknown function call");
 			return null;
 		} else {
-			System.err.println(obj+" is not a function!");
+			Bugs.LOG.log(funcExpression.beginPosition, 
+					"unknown object");
 			return null;
 		}
 	}
@@ -552,8 +691,10 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		while(ty instanceof ASTDummyType) {
 			ty = ((ASTDummyType)ty).type;
 		}
-		if(!(ty instanceof ASTRecType))
+		if(!(ty instanceof ASTRecType)) {
+			Bugs.LOG.log(rec.base.beginPosition, "Not a record type");
 			return null;
+		}
 		ASTRecType type = (ASTRecType)ty;
 		rec.type = type.fieldsType.get(rec.field);
 		return buildOne(rec.type);
@@ -565,8 +706,10 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		while(ty instanceof ASTDummyType) {
 			ty = ((ASTDummyType)ty).type;
 		}
-		if(!(ty instanceof ASTRecType))
+		if(!(ty instanceof ASTRecType)) {
+			Bugs.LOG.log(tuple.base.beginPosition, "Not a record type");
 			return null;
+		}
 		ASTRecType type = (ASTRecType)ty;
 		Map<String, ASTType> old = new HashMap<String, ASTType>(this.variableMapping);
 		for(Map.Entry<String, ASTType> ent : type.fieldsType.entrySet()) {
@@ -583,7 +726,7 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		for(int i=0; i<tuple.exps.size(); ++i) {
 			ASTType ty = assertOne(visit(tuple.exps.get(i)));
 			if(ty == null) {
-				visit(tuple.exps.get(i));
+				Bugs.LOG.log(tuple.exps.get(i).beginPosition, "cannot type check "+tuple.exps.get(i));
 				return null;
 			}
 			ret.add(ty);
@@ -613,18 +756,25 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					return buildOne(p.left);
 				}
 		}
+		Bugs.LOG.log(variableExpression.beginPosition, "Unknown variable "+variableExpression.var);
 		return null;
 	}
 
 	@Override
 	public List<ASTType> visit(ASTOrPredicate orPredicate) {
 		ASTType ty = assertOne(visit(orPredicate.left));
-		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure)))
+		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure))) {
+			Bugs.LOG.log(orPredicate.left.beginPosition, 
+					"a boolean value is required");
 			return null;
+		}
 		ASTIntType ty1 = (ASTIntType)ty;
 		ty = assertOne(visit(orPredicate.right));
-		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure)))
+		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure))) {
+			Bugs.LOG.log(orPredicate.right.beginPosition, 
+					"a boolean value is required");
 			return null;
+		}
 		ASTIntType ty2 = (ASTIntType)ty;
 		orPredicate.type = ASTIntType.get(new ASTConstantExpression(1), ty1.getLabel().meet(ty2.getLabel())); 
 		return buildOne(orPredicate.type);
@@ -634,13 +784,18 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	public List<ASTType> visit(ASTAndPredicate andPredicate) {
 		ASTType ty = assertOne(visit(andPredicate.left));
 		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure))) {
-			assertOne(visit(andPredicate.left));
+//			assertOne(visit(andPredicate.left));
+			Bugs.LOG.log(andPredicate.left.beginPosition, 
+					"a boolean value is required");
 			return null;
 		}
 		ASTIntType ty1 = (ASTIntType)ty;
 		ty = assertOne(visit(andPredicate.right));
-		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure)))
+		if(!ty.canFlowTo(ASTIntType.get(new ASTConstantExpression(1), ASTLabel.Secure))) {
+			Bugs.LOG.log(andPredicate.right.beginPosition, 
+					"a boolean value is required");
 			return null;
+		}
 		ASTIntType ty2 = (ASTIntType)ty;
 		andPredicate.type = ASTIntType.get(new ASTConstantExpression(1), ty1.getLabel().meet(ty2.getLabel())); 
 		return buildOne(andPredicate.type);
@@ -650,31 +805,35 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		return type instanceof ASTDummyType || type instanceof ASTNullType;
 	}
 	
-	private ASTType cmp(ASTType lty, ASTType rty, REL_OP op) {
+	private ASTType cmp(Position lPos, ASTType lty, Position rPos, ASTType rty, REL_OP op) {
 		if(isDummyType(rty) && !isDummyType(lty)) {
-			return cmp(rty, lty, op);
+			return cmp(rPos, rty, lPos, lty, op);
 		}
 		if(lty instanceof ASTIntType) {
 			ASTIntType ty1 = (ASTIntType)lty;
 			if(!(rty instanceof ASTIntType)) {
-				System.err.println("Cannot compare an Integer value with a non-integer value.");
+				Bugs.LOG.log(lPos, 
+						"Cannot compare an Integer value with a non-integer value.");
 				return null;
 			}
 			ASTIntType ty2 = (ASTIntType)rty;
 			if(!ty1.canFlowTo(ty2) && !ty2.canFlowTo(ty1)) {
-				System.err.println("Type "+ty1+" doesn't match type "+ty2);
+				Bugs.LOG.log(lPos,
+						"Type "+ty1+" doesn't match type "+ty2);
 				return null;
 			}
 			return ASTIntType.get(new ASTConstantExpression(1), ty1.getLabel().meet(ty2.getLabel()));
 		} else if(lty instanceof ASTFloatType) {
 			ASTFloatType ty1 = (ASTFloatType)lty;
 			if(!(rty instanceof ASTFloatType)) {
-				System.err.println("Cannot compare a floating value with a non-floating value.");
+				Bugs.LOG.log(lPos,
+						"Cannot compare a floating value with a non-floating value.");
 				return null;
 			}
 			ASTFloatType ty2 = (ASTFloatType)rty;
 			if(!ty1.canFlowTo(ty2) && !ty2.canFlowTo(ty1)) {
-				System.err.println("Type "+ty1+" doesn't match type "+ty2);
+				Bugs.LOG.log(lPos,
+						"Type "+ty1+" doesn't match type "+ty2);
 				return null;
 			}
 			return ASTIntType.get(new ASTConstantExpression(1), ty1.getLabel().meet(ty2.getLabel()));
@@ -682,26 +841,32 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			ASTType type = ((ASTDummyType)lty).type;
 			if(rty instanceof ASTNullType) {
 				if(op != REL_OP.EQ && op != REL_OP.NEQ) {
-					System.err.println("Can only compare the equality on the null value");
+					Bugs.LOG.log(lPos,
+							"Can only compare the equality on the null value");
 					return null;
 				}
 				return ASTIntType.get(new ASTConstantExpression(1), type.getLabel());
 			} else if(rty instanceof ASTDummyType) {
-				return cmp(type, ((ASTDummyType)rty).type, op);
+				return cmp(lPos, type, rPos, ((ASTDummyType)rty).type, op);
 			} else {
-				return cmp(type, rty, op);
+				return cmp(lPos, type, rPos, rty, op);
 			}
 		} else if(lty instanceof ASTNullType) {
 			if(op != REL_OP.EQ && op != REL_OP.NEQ) {
-				System.err.println("Can only compare the equality of two nullable types");
+				Bugs.LOG.log(lPos,
+						"Can only compare the equality of two nullable types");
 				return null;
 			}
 			if(isDummyType(rty))
 				return ASTIntType.get(new ASTConstantExpression(1), rty.getLabel());
-			else
+			else {
+				Bugs.LOG.log(rPos, "must be a dummy type");
 				return null;
-		} else
+			}
+		} else {
+			Bugs.LOG.log(lPos, "uncomparable types");
 			return null;
+		}
 	}
 	
 	@Override
@@ -709,16 +874,19 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		ASTType lty = assertOne(visit(binaryPredicate.left));
 		ASTType rty = assertOne(visit(binaryPredicate.right));
 		if(lty == null) {
-			System.err.println("Cannot type check "+binaryPredicate.left);
-			visit(binaryPredicate.left);
+			Bugs.LOG.log(binaryPredicate.left.beginPosition,
+					"Cannot type check "+binaryPredicate.left);
+//			visit(binaryPredicate.left);
 			return null;
 		}
 		if(rty == null) {
-			System.err.println("Cannot type check "+binaryPredicate.right);
-			visit(binaryPredicate.right);
+			Bugs.LOG.log(binaryPredicate.right.beginPosition,
+					"Cannot type check "+binaryPredicate.right);
+//			visit(binaryPredicate.right);
 			return null;
 		}
-		binaryPredicate.type = cmp(lty, rty, binaryPredicate.op);
+		binaryPredicate.type = cmp(binaryPredicate.left.beginPosition, lty, 
+				binaryPredicate.right.beginPosition, rty, binaryPredicate.op);
 		return buildOne(binaryPredicate.type);
 	}
 
@@ -726,9 +894,14 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	public List<ASTType> visit(ASTNewObjectExpression exp) {
 		for(Map.Entry<String, ASTExpression> ent : exp.valueMapping.entrySet()) {
 			ASTType ty = assertOne(visit(ent.getValue()));
-			if(!exp.type.fieldsType.containsKey(ent.getKey())
-					|| !ty.canFlowTo(exp.type.fieldsType.get(ent.getKey())))
+			if(!exp.type.fieldsType.containsKey(ent.getKey())) {
+				Bugs.LOG.log(ent.getValue().beginPosition, "unknown field");
+			}
+			if(!ty.canFlowTo(exp.type.fieldsType.get(ent.getKey()))) {
+				Bugs.LOG.log(ent.getValue().beginPosition, 
+						"cannot coerce the provided value to the field "+ent.getKey());
 				return null;
+			}
 		}
 		((ASTExpression)exp).type = exp.type;
 		return buildOne(exp.type);
@@ -767,8 +940,11 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	@Override
 	public List<ASTType> visit(ASTLogExpression tuple) {
 		ASTType ty = assertOne(visit(tuple.exp));
-		if(!(ty instanceof ASTIntType))
+		if(!(ty instanceof ASTIntType)) {
+			Bugs.LOG.log(tuple.exp.beginPosition,
+					"The input of log() function must be of int type");
 			return null;
+		}
 		tuple.type = ASTIntType.get(32, ASTLabel.Pub);
 		return buildOne(tuple.type);
 	}
@@ -776,17 +952,26 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	@Override
 	public List<ASTType> visit(ASTRangeExpression tuple) {
 		ASTType sty = assertOne(visit(tuple.source));
-		if(!(sty instanceof ASTIntType))
+		if(!(sty instanceof ASTIntType)) {
+			Bugs.LOG.log(tuple.source.beginPosition,
+					"range expression can only be operated over int values");
 			return null;
+		}
 		ASTType lty = assertOne(visit(tuple.rangel));
 		if(!(lty instanceof ASTIntType) && 
-				((ASTIntType)lty).getLabel() == ASTLabel.Pub)
+				((ASTIntType)lty).getLabel() == ASTLabel.Pub) {
+			Bugs.LOG.log(tuple.rangel.beginPosition,
+					"range values must be public int");
 			return null;
+		}
 		if(tuple.ranger != null) {
 			ASTType rty = assertOne(visit(tuple.ranger));
 			if(!(rty instanceof ASTIntType) && 
-					((ASTIntType)rty).getLabel() == ASTLabel.Pub)
+					((ASTIntType)rty).getLabel() == ASTLabel.Pub) {
+				Bugs.LOG.log(tuple.ranger.beginPosition,
+						"range values must be public int");
 				return null;
+			}
 		}
 		tuple.type = ASTIntType.get(
 				tuple.ranger == null ? new ASTConstantExpression(1) :
@@ -835,15 +1020,18 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		Map<String, ASTType> old1 = new HashMap<String, ASTType>(this.variableMapping);
 		for(Pair<String, ASTExpression> ent : stmt.use) {
 			if(!ac.visit(ent.right)) {
-				System.err.println("the expressions the using header must be assignable");
+				Bugs.LOG.log(ent.right.beginPosition,
+						"the expressions the using header must be assignable");
 				return false;
 			}
 			if(this.function.containVariables(ent.left)) {
-				System.err.println("the using block's variable "+ent.left+" is a local variable or an input variable!");
+				Bugs.LOG.log(ent.right.beginPosition,
+						"the using block's variable "+ent.left+" is a local variable or an input variable!");
 				return false;
 			}
 			if(usingVariable.contains(ent.left)) {
-				System.err.println("the using block's variable "+ent.left+" is duplicated!");
+				Bugs.LOG.log(ent.right.beginPosition,
+						"the using block's variable "+ent.left+" is duplicated!");
 				return false;
 			}
 			usingVariable.add(ent.left);
@@ -863,12 +1051,15 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 		ResourceBudget before = budget.clone();
 		for(ASTStatement st : stmt.body) {
 			if(!visit(st)) {
-				System.err.println(st+" doesn't type check.");
+				Bugs.LOG.log(st.beginPosition,
+						"statement doesn't type check.");
 				return false;
 			}
 		}
 		if(!before.equal(budget)) {
-			System.err.println("Using block consuming variables!");
+			Bugs.LOG.log(stmt.beginPosition,
+					"Using block consuming variables!");
+			return false;
 		}
 		for(Pair<String, ASTExpression> ent : stmt.use) {
 			usingVariable.remove(ent.left);
@@ -881,5 +1072,10 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 	private void setBudget(ResourceBudget budget) {
 		this.budget = budget;
 		this.bcon.budget = budget;
+	}
+
+	@Override
+	public List<ASTType> visit(ASTSizeExpression exp) {
+		return buildOne(ASTIntType.get(32, ASTLabel.Pub));
 	}
 }

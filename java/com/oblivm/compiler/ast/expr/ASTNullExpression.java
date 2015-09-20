@@ -13,4 +13,9 @@ public class ASTNullExpression extends ASTExpression {
 	public String toString() {
 		return "null";
 	}
+
+	@Override
+	public ASTNullExpression cloneInternal() {
+		return new ASTNullExpression();
+	}
 }

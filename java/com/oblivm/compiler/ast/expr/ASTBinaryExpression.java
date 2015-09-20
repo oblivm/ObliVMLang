@@ -102,4 +102,8 @@ public class ASTBinaryExpression extends ASTExpression {
 		ASTBinaryExpression bexp = ((ASTBinaryExpression)obj);
 		return op == bexp.op && left.equals(bexp.left) && right.equals(bexp.right); 
 	}
+
+	public ASTBinaryExpression cloneInternal() {
+		return new ASTBinaryExpression(left.clone(), op, right.clone());
+	}
 }

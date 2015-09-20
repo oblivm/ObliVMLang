@@ -19,7 +19,6 @@ import com.oblivm.compiler.ast.expr.ASTExpression;
  */
 public class ASTGetValueExpression extends ASTExpression {
 
-
 	public enum HandleWay {
 		Shallow, GetValue, PureRandom;
 	}
@@ -50,4 +49,7 @@ public class ASTGetValueExpression extends ASTExpression {
 		return 100;
 	}
 
+	public ASTGetValueExpression cloneInternal() {
+		return new ASTGetValueExpression(way, exp.clone());
+	}
 }

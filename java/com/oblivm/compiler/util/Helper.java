@@ -6,6 +6,8 @@ package com.oblivm.compiler.util;
 import com.oblivm.compiler.ast.expr.ASTBinaryExpression.BOP;
 import com.oblivm.compiler.ast.expr.ASTBinaryPredicate.REL_OP;
 
+import java.util.*;
+
 public class Helper {
 	public static boolean eval(int v1, int v2, REL_OP op) {
 		if(op == REL_OP.EQ)
@@ -80,5 +82,9 @@ public class Helper {
 		} else {
 			return Integer.decode(str);
 		}
+	}
+	
+	public static<T> T last(List<T> list) {
+		return list.get(list.size() - 1);
 	}
 }

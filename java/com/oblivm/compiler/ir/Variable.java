@@ -15,7 +15,7 @@ public class Variable {
 	
 	public Variable(Type type, Label lab, String name, boolean toHaveType) {
 		if(type.getLabel() != lab) {
-			System.out.println("Wrong here.");
+			throw new RuntimeException("Wrong here.");
 		}
 		this.type = type;
 		this.lab = lab;

@@ -15,8 +15,11 @@ public class ASTFunctionType extends ASTType {
 	public boolean global;
 	public boolean isPhantom;
 	
-	public ASTFunctionType(ASTType ret, String name, 
-			List<String> bitParameter, List<ASTType> inputs, boolean global) {
+	public ASTFunctionType(ASTType ret, 
+			String name, 
+			List<String> bitParameter, 
+			List<ASTType> inputs, 
+			boolean global) {
 		this.bitParameter = bitParameter;
 		this.returnType = ret;
 		this.name = name;
@@ -25,11 +28,17 @@ public class ASTFunctionType extends ASTType {
 		this.global = global;
 	}
 
-	public ASTFunctionType(ASTType ret, String name, List<ASTType> inputs, boolean global) {
+	public ASTFunctionType(
+			ASTType ret, 
+			String name, 
+			List<ASTType> inputs, 
+			boolean global) {
 		this(ret, name, new ArrayList<String>(), inputs, global);
 	}
 	
-	public ASTFunctionType(ASTType ret, String name, boolean global) {
+	public ASTFunctionType(ASTType ret, 
+			String name, 
+			boolean global) {
 		this(ret, name, new ArrayList<ASTType>(), global);
 	}
 	

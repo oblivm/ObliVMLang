@@ -32,6 +32,7 @@ import com.oblivm.compiler.ast.expr.ASTPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -57,6 +58,7 @@ import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTTypeVisitor;
 import com.oblivm.compiler.ast.type.ASTVariableType;
 import com.oblivm.compiler.ast.type.ASTVoidType;
+import com.oblivm.compiler.log.Bugs;
 import com.oblivm.compiler.util.Pair;
 
 public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, ASTType> implements ASTTypeVisitor<ASTType>, IFunctionVisitor<ASTFunction> {
@@ -80,7 +82,27 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 		for(Pair<String, ASTType> type : program.typeDef) {
 			if(type.right instanceof ASTRecType)
 				this.isStructDef = true;
+			if(program.typeVarDef.get(type.left) != null) {
+				for(ASTType ty : program.typeVarDef.get(type.left)) {
+					if(!(ty instanceof ASTVariableType)) {
+						Bugs.LOG.log("Parser bugs!");
+						System.exit(1);
+					}
+					typeVars.put(((ASTVariableType)ty).var, ty);
+				}
+			}
+			if(program.typeBitVarDef.get(type.left) != null) {
+				for(ASTExpression ty : program.typeBitVarDef.get(type.left)) {
+					if(!(ty instanceof ASTVariableExpression)) {
+						Bugs.LOG.log("Parser bugs!");
+						System.exit(1);
+					}
+					bitVars.put(((ASTVariableExpression)ty).var, ty);
+				}
+			}
 			type.right = visit(type.right);
+			typeVars = new HashMap<String, ASTType>();
+			bitVars = new HashMap<String, ASTExpression>();
 			this.isStructDef = false;
 		}
 
@@ -119,6 +141,10 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 		return type;
 	}
 
+	public ASTExpression visitNull() {
+		return null;
+	}
+
 	@Override
 	public ASTType visit(ASTIntType type) {
 		if(copy)
@@ -147,9 +173,22 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 	public ASTType visit(ASTNativeType type) {
 		if(copy) {
 			// TODO instantiate bit variables
-			return new ASTNativeType(type.name, type.bitVariables);
-		} else
+			ASTNativeType nt = new ASTNativeType(type.name, type.bitVariables);
+			if(type.constructor != null) {
+				nt.constructor = new ArrayList<ASTExpression>();
+				for(ASTExpression exp : nt.constructor) {
+					nt.constructor.add(visit(exp));
+				}
+			}
+			return nt;
+		} else {
+			if(type.constructor != null) {
+				for(int i=0; i<type.constructor.size(); ++i) {
+					type.constructor.set(i, visit(type.constructor.get(i)));
+				}
+			}
 			return type;
+		}
 	}
 
 	@Override
@@ -253,7 +292,40 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 						throw new RuntimeException("Too many bit variables for a rnd type!");
 					return ASTRndType.get(type.bitVars.size() == 0 ? null : visit(type.bitVars.get(0)), ((ASTRndType)ent.right).getLabel());
 				} else if(ent.right instanceof ASTNativeType) {
-					return ent.right;
+					Map<String, ASTType> old_ty = new HashMap<String, ASTType>(this.typeVars);
+					Map<String, ASTExpression> old_bit = new HashMap<String, ASTExpression>(this.bitVars);
+					if(program.typeVarDef.get(ent.left) != null) {
+						List<ASTType> tys = program.typeVarDef.get(ent.left);
+						if(type.typeVars == null || type.typeVars.size() != tys.size()) {
+							Bugs.LOG.log(type.beginPosition, "Type parameters don't match.");
+							System.exit(1);
+						}
+						for(int i=0; i<tys.size(); ++i) {
+							ASTVariableType vt = (ASTVariableType)tys.get(i);
+							this.typeVars.put(vt.var, type.typeVars.get(i));
+						}
+					} else if(type.typeVars != null && type.typeVars.size() > 0) {
+						Bugs.LOG.log(type.beginPosition, "Type parameters don't match.");
+						System.exit(1);
+					}
+					if(program.typeBitVarDef.get(ent.left) != null) {
+						List<ASTExpression> exps = program.typeBitVarDef.get(ent.left);
+						if(type.bitVars == null || type.bitVars.size() != exps.size()) {
+							Bugs.LOG.log(type.beginPosition, "Bit parameters don't match.");
+							System.exit(1);
+						}
+						for(int i=0; i<exps.size(); ++i) {
+							ASTVariableExpression vt = (ASTVariableExpression)exps.get(i);
+							this.bitVars.put(vt.var, type.bitVars.get(i));
+						}
+					} else if(type.bitVars != null && type.bitVars.size() > 0) {
+						Bugs.LOG.log(type.beginPosition, "Bit parameters don't match.");
+						System.exit(1);
+					}
+					ASTType ret = visit(ent.right);
+					this.typeVars = old_ty;
+					this.bitVars = old_bit;
+					return ret;
 				} else if(ent.right instanceof ASTRecType) {
 					ASTRecType t = (ASTRecType)ent.right;
 					ASTRecType ret = new ASTRecType(t.name, t.lab);
@@ -817,6 +889,17 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 				stmt.body.set(i, visit(stmt.body.get(i)));
 			}
 			return stmt;
+		}
+	}
+
+	@Override
+	public ASTExpression visit(ASTSizeExpression exp) {
+		if(copy) {
+			ASTSizeExpression ret = new ASTSizeExpression(visit(exp.type));
+			return ret;
+		} else {
+			exp.type = visit(exp.type);
+			return exp;
 		}
 	}
 

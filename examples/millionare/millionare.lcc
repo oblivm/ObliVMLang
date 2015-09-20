@@ -1,0 +1,9 @@
+package com.oblivm.backend.generated.millionare;
+
+int main(int x, int y) {
+	int ret;
+	if ( x < y ) ret = 0;
+	else ret = 1;
+	return ret;
+}
+

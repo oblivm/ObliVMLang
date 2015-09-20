@@ -30,6 +30,7 @@ import com.oblivm.compiler.ast.expr.ASTOrPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -55,7 +56,6 @@ import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.ast.type.ASTVariableType;
 import com.oblivm.compiler.ast.type.ASTVoidType;
 import com.oblivm.compiler.backend.flexsc.Config;
-import com.oblivm.compiler.debug.Debug;
 import com.oblivm.compiler.frontend.bloop.ASTBranchStatement;
 import com.oblivm.compiler.frontend.bloop.BoundedLoopRewritter;
 import com.oblivm.compiler.frontend.nullable.ASTBoxNullableExpression;
@@ -88,12 +88,15 @@ import com.oblivm.compiler.ir.Ret;
 import com.oblivm.compiler.ir.ReverseRecordAssign;
 import com.oblivm.compiler.ir.RopExp;
 import com.oblivm.compiler.ir.Seq;
+import com.oblivm.compiler.ir.SizeofExp;
 import com.oblivm.compiler.ir.Skip;
 import com.oblivm.compiler.ir.UnaryOpExp;
 import com.oblivm.compiler.ir.UsingBlock;
 import com.oblivm.compiler.ir.VarExp;
 import com.oblivm.compiler.ir.Variable;
 import com.oblivm.compiler.ir.While;
+import com.oblivm.compiler.log.Bugs;
+import com.oblivm.compiler.log.Info;
 import com.oblivm.compiler.type.manage.ArrayType;
 import com.oblivm.compiler.type.manage.BOPVariableConstant;
 import com.oblivm.compiler.type.manage.BitVariable;
@@ -109,6 +112,7 @@ import com.oblivm.compiler.type.manage.NativeType;
 import com.oblivm.compiler.type.manage.NullType;
 import com.oblivm.compiler.type.manage.RecordType;
 import com.oblivm.compiler.type.manage.RndType;
+import com.oblivm.compiler.type.manage.SizeofVariable;
 import com.oblivm.compiler.type.manage.Type;
 import com.oblivm.compiler.type.manage.TypeManager;
 import com.oblivm.compiler.type.manage.VariableConstant;
@@ -154,8 +158,10 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	public TypeManager compile(ASTProgram program) {
 		if(!tc.check(program)) {
-			Debug.LOG.log("The program does not type check.");
+			Bugs.LOG.log("The program does not type check.");
+			System.exit(1);
 		}
+		Info.LOG.log("The program type checks");
 		return translate(program);
 	}
 
@@ -167,7 +173,6 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 			if(function instanceof ASTFunctionDef) {
 				this.function = (ASTFunctionDef)function;
 				blr.rewrite(this.function);
-				//				System.out.println(this.function);
 			}
 		}
 		this.bie.process(program);
@@ -241,6 +246,9 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 				}
 				this.phantom = function.isDummy;
 				method.isPhantom = phantom;
+				if(this.function.isDummy) {
+					// TODO
+				}
 				for(ASTStatement stmt : this.function.body)
 					method.code = Seq.seq(method.code, visit(stmt));
 				tm.addMethod(baseType, method);
@@ -257,7 +265,9 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 	public VariableConstant constructConstant(ASTExpression exp) {
 		if(exp instanceof ASTLogExpression) {
 			return new LogVariable(constructConstant(((ASTLogExpression)exp).exp));
-		} if(exp instanceof ASTConstantExpression) {
+		} else if(exp instanceof ASTSizeExpression) {
+			return new SizeofVariable(visit(((ASTSizeExpression)exp).type));
+		} else if(exp instanceof ASTConstantExpression) {
 			return new Constant(((ASTConstantExpression)exp).value);
 		} else if(exp instanceof ASTVariableExpression) {
 			return new BitVariable(((ASTVariableExpression)exp).var);
@@ -308,7 +318,15 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 	@Override
 	public Type visit(ASTNativeType type) {
 		// TODO raw name
-		return new NativeType("", type.name);
+		if(type.constructor == null) {
+			return new NativeType(type.name, type.name, null);
+		} else {
+			List<VariableConstant> list = new ArrayList<VariableConstant>();
+			for(int i=0; i<type.constructor.size(); ++i) {
+				list.add(this.constructConstant(type.constructor.get(i)));
+			}
+			return new NativeType(type.name, type.name, list);
+		}
 	}
 
 	@Override
@@ -618,13 +636,7 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 			ASTGetValueExpression as = (ASTGetValueExpression)exp;
 			return visit(as);
 		}
-		
-		if(exp instanceof ASTVariableExpression) {
-			ASTVariableExpression t = (ASTVariableExpression)exp;
-			if(t.var.equals("b")) {
-				System.out.println("Here");
-			}
-		}
+
 		Pair<List<Variable>, IRCode> pair = super.visit(exp);
 		if(exp.targetBits == null 
 				|| this.constructConstant(exp.targetBits).equals(pair.left.get(0).getBits())
@@ -819,7 +831,6 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	@Override
 	public Pair<List<Variable>, IRCode> visit(ASTFuncExpression funcExpression) {
-		System.out.println(funcExpression);
 		IRCode code = new Skip();
 		List<Variable> input = new ArrayList<Variable>();
 		int j = 0;
@@ -832,10 +843,17 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 				Variable x = t;
 			}
 			for(Variable v : tmp.left) {
+				ASTType type = funcExpression.inputTypes.get(j);
+				ASTExpression typeBits = null;
+				if(type instanceof ASTIntType) {
+					typeBits = ((ASTIntType)type).getBits();
+				} else if(type instanceof ASTRndType) {
+					typeBits = ((ASTRndType)type).getBits();
+				}
 				if(funcExpression.inputTypes.get(j) == null
 						|| !(v.type instanceof IntType)
 						|| !(v.lab == Label.Secure)
-						|| constructConstant(((ASTIntType)funcExpression.inputTypes.get(j)).getBits()).equals(v.getBits())
+						|| constructConstant(typeBits).equals(v.getBits())
 						) {
 					input.add(v);
 				} else {
@@ -884,12 +902,29 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 					List<VariableConstant> bits = new ArrayList<VariableConstant>();
 					for(int i=0; i<funcExpression.bitParameters.size(); ++i)
 						bits.add(this.constructConstant(funcExpression.bitParameters.get(i)));
-					if(func instanceof ASTFunctionNative)
-						exp = new FuncCallExp((FunctionType)visit(program.getFunctionType(name)), ty.getLabel(), ty, 
-								((ASTFunctionNative)func).nativeName, bits, input, true);
-					else
-						exp = new FuncCallExp((FunctionType)visit(program.getFunctionType(name)), ty.getLabel(), ty, 
-								name, bits, input, false);
+					if(func instanceof ASTFunctionNative) {
+						FunctionType rawFty = (FunctionType)visit(program.getFunctionType(name));
+						FunctionType fty = (FunctionType)visit(funcExpression.obj.type);
+						exp = new FuncCallExp(rawFty,
+								fty, 
+								ty.getLabel(), 
+								ty, 
+								((ASTFunctionNative)func).nativeName, 
+								bits, 
+								input, 
+								true);
+					} else {
+						FunctionType rawFty = (FunctionType)visit(program.getFunctionType(name));
+						FunctionType fty = (FunctionType)visit(funcExpression.obj.type);
+						exp = new FuncCallExp(rawFty,
+								fty, 
+								ty.getLabel(), 
+								ty, 
+								name, 
+								bits, 
+								input, 
+								false);
+					}
 					Variable var = new Variable(ty, ty.getLabel(), newTempVar());
 					return new Pair<List<Variable>, IRCode>(one(var),
 							Seq.seq(code, new Assign(var.lab, var, exp)));
@@ -931,7 +966,9 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 					if(func.isDummy) {
 						if(this.currentCond == null) {
 							Variable var = new Variable(new IntType(1, Label.Secure), Label.Secure, newTempVar());
-							code = Seq.seq(code, new Assign(var.lab, var, new ConstExp(1, new Constant(1))));
+							code = Seq.seq(code, new Assign(var.lab, var,
+									function.isDummy ? new VarExp(getPhantomVariable())
+											 : new ConstExp(1, new Constant(1))));
 							input.add(var);
 						} else {
 							input.add(currentCond);
@@ -943,12 +980,31 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 						bits.add(this.constructConstant(funcExpression.bitParameters.get(i)));
 
 					FuncCallExp exp;
-					if(func instanceof ASTFunctionNative)
-						exp = new FuncCallExp((FunctionType)visit(program.getFunctionType(name)), 
-								ty.getLabel(), ty, base.left.get(0), ((ASTFunctionNative)func).nativeName, bits, input, true);
-					else
-						exp = new FuncCallExp((FunctionType)visit(program.getFunctionType(name)), 
-								ty.getLabel(), ty, base.left.get(0), name, bits, input, false);
+					if(func instanceof ASTFunctionNative) {
+						FunctionType rawFty = (FunctionType)visit(program.getFunctionType(name));
+						FunctionType fty = (FunctionType)visit(funcExpression.obj.type);
+						exp = new FuncCallExp(rawFty,
+								fty, 
+								ty.getLabel(), 
+								ty, 
+								base.left.get(0), 
+								((ASTFunctionNative)func).nativeName, 
+								bits, 
+								input, 
+								true);
+					} else {
+						FunctionType rawFty = (FunctionType)visit(program.getFunctionType(name));
+						FunctionType fty = (FunctionType)visit(funcExpression.obj.type);
+						exp = new FuncCallExp(rawFty,
+								fty, 
+								ty.getLabel(), 
+								ty, 
+								base.left.get(0), 
+								name, 
+								bits, 
+								input, 
+								false);
+					}
 					Variable var = new Variable(ty, ty.getLabel(), newTempVar());
 					return new Pair<List<Variable>, IRCode>(one(var),
 							Seq.seq(Seq.seq(code, base.right),
@@ -1186,6 +1242,14 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 		}
 		this.variableValues = old;
 		return new UsingBlock(code);
+	}
+
+	@Override
+	public Pair<List<Variable>, IRCode> visit(ASTSizeExpression exp) {
+		Type type = visit(exp.type);
+		Variable var = new Variable(new IntType(32, Label.Pub), Label.Pub, newTempVar());
+		IRCode code = new Assign(Label.Pub, var, new SizeofExp(type));
+		return new Pair<List<Variable>, IRCode>(one(var), code);
 	}
 
 }

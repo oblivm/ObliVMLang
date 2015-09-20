@@ -3,6 +3,8 @@
  */
 package com.oblivm.compiler.ast.expr;
 
+import java.util.ArrayList;
+import java.util.List;
 
 public class ASTRecTupleExpression extends ASTTupleExpression {
 	public ASTExpression base;
@@ -10,6 +12,11 @@ public class ASTRecTupleExpression extends ASTTupleExpression {
 	public ASTRecTupleExpression(ASTExpression base, ASTTupleExpression tuple) {
 		this.base = base;
 		this.exps = tuple.exps;
+	}
+	
+	public ASTRecTupleExpression(ASTExpression base, List<ASTExpression> exps) {
+		this.base = base;
+		this.exps = exps;
 	}
 	
 	@Override
@@ -21,4 +28,11 @@ public class ASTRecTupleExpression extends ASTTupleExpression {
 		return base.toString() + ".(" + super.toString() + ")";
 	}
 
+	public ASTRecTupleExpression cloneInternal() {
+		List<ASTExpression> newExp = new ArrayList<ASTExpression>();
+		for(ASTExpression e : exps) {
+			newExp.add(e.clone());
+		}
+		return new ASTRecTupleExpression(base.clone(), newExp);
+	}
 }

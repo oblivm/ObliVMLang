@@ -8,4 +8,8 @@ public class Position {
 		this.line = line;
 		this.column = column;
 	}
+	
+	public String toString() {
+		return "("+line+", "+column+")";
+	}
 }

@@ -33,4 +33,8 @@ public class ASTArrayExpression extends ASTExpression {
 		ASTArrayExpression array = (ASTArrayExpression)obj;
 		return var.equals(array.var) && indexExpr.equals(array.indexExpr);
 	}
+	
+	public ASTArrayExpression cloneInternal() {
+		return new ASTArrayExpression(var.clone(), indexExpr.clone());
+	}
 }

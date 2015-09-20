@@ -24,4 +24,18 @@ public class VariableType extends Type {
 		return true;
 	}
 
+	@Override
+	public boolean writable() {
+		return true;
+	}
+	
+	public boolean equals(Object obj) {
+		if(!(obj instanceof VariableType))
+			return false;
+		return name.equals(((VariableType)obj).name);
+	}
+	
+	public boolean similar(Type type) {
+		return type instanceof VariableType;
+	}
 }

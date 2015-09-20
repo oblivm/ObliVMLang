@@ -6,6 +6,7 @@ package com.oblivm.compiler.ast.expr;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.oblivm.compiler.ast.type.ASTFunctionType;
 import com.oblivm.compiler.ast.type.ASTType;
 import com.oblivm.compiler.util.Pair;
 
@@ -14,6 +15,17 @@ public class ASTFuncExpression extends ASTExpression {
 	public List<ASTType> typeVars = null; 
 	public List<Pair<String, ASTExpression>> inputs;
 	public List<ASTExpression> bitParameters;
+	
+	public ASTFuncExpression cloneInternal() {
+		List<ASTExpression> bits = new ArrayList<ASTExpression>();
+		for(ASTExpression e : bitParameters)
+			bits.add(e.clone());
+		ASTFuncExpression exp = new ASTFuncExpression(obj.clone(), bits, typeVars);
+		for(Pair<String, ASTExpression> i : inputs) {
+			exp.addInputs(i.left, i.right.clone());
+		}
+		return exp;
+	}
 	
 	/***
 	 * To fill by TypeChecker

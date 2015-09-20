@@ -26,4 +26,9 @@ public class ASTOrPredicate extends ASTPredicate {
 		return 0;
 	}
 
+	@Override
+	public ASTOrPredicate cloneInternal() {
+		return new ASTOrPredicate(left.clone(), right.clone());
+	}
+
 }

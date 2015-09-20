@@ -62,6 +62,8 @@ public abstract class IRVisitor<T1, T2> {
 			return visit((VarExp)exp);
 		} else if(exp instanceof LogExp) {
 			return visit((LogExp)exp);
+		} else if(exp instanceof SizeofExp) {
+			return visit((SizeofExp)exp);
 		} else if(exp instanceof RangeExp) {
 			return visit((RangeExp)exp);
 		} else if(exp instanceof EnforceBitExp) {
@@ -88,6 +90,7 @@ public abstract class IRVisitor<T1, T2> {
 	public abstract T2 visit(VarExp exp);
 	public abstract T2 visit(RecExp exp);
 	public abstract T2 visit(LogExp exp);
+	public abstract T2 visit(SizeofExp exp);
 	public abstract T2 visit(RangeExp exp);
 	public abstract T2 visit(EnforceBitExp exp);
 	public abstract T2 visit(FuncCallExp exp);

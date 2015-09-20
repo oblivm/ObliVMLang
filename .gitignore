@@ -14,6 +14,9 @@ hs_err_pid*
 # temporarily editing files, not ready for release
 /ignore/
 
+# java cc
+/javacc-5.0/
+
 .DS_Store
 #.classpath
 #.project

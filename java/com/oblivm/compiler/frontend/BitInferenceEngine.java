@@ -25,6 +25,7 @@ import com.oblivm.compiler.ast.expr.ASTOrPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
@@ -548,6 +549,12 @@ public class BitInferenceEngine  extends DefaultStatementExpressionVisitor<Void,
 		for(ASTStatement st : stmt.body)
 			visit(st);
 		return null;
+	}
+
+	@Override
+	public ASTExpression visit(ASTSizeExpression exp) {
+		this.current = ASTIntType.get(32, ASTLabel.Pub);
+		return new ASTConstantExpression(32);
 	}
 
 }

@@ -26,4 +26,14 @@ public class NullType extends Type {
 		return true;
 	}
 
+	@Override
+	public boolean writable() {
+		return true;
+	}
+	
+	@Override
+	public boolean similar(Type type) {
+		return (type instanceof DummyType) || (type instanceof NullType);
+	}
+
 }

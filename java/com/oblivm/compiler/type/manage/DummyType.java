@@ -33,4 +33,12 @@ public class DummyType extends Type {
 		return true;
 	}
 
+	@Override
+	public boolean writable() {
+		return true;
+	}
+	
+	public boolean similar(Type type) {
+		return this.type.similar(type);
+	}
 }

@@ -46,6 +46,8 @@ public abstract class ASTFunction extends AST {
 		for(int i=0; i<bitParameter.size(); ++i)
 			ret.bitParameter.add(bitParameter.get(i));
 		
+		ret.isPhantom = isDummy;
+		
 		return ret;
 	}
 }

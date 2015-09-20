@@ -24,4 +24,8 @@ public class ASTAndPredicate extends ASTPredicate {
 	public int level() {
 		return 1;
 	}
+	
+	public ASTAndPredicate cloneInternal() {
+		return new ASTAndPredicate(left.clone(), right.clone());
+	}
 }

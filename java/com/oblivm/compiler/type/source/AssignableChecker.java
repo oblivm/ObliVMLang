@@ -19,6 +19,7 @@ import com.oblivm.compiler.ast.expr.ASTPredicate;
 import com.oblivm.compiler.ast.expr.ASTRangeExpression;
 import com.oblivm.compiler.ast.expr.ASTRecExpression;
 import com.oblivm.compiler.ast.expr.ASTRecTupleExpression;
+import com.oblivm.compiler.ast.expr.ASTSizeExpression;
 import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.expr.ExpressionVisitor;
@@ -36,7 +37,10 @@ public class AssignableChecker implements ExpressionVisitor<Boolean> {
 			throw new RuntimeException("Unknown Predicate!");
 	}
 
-
+	public Boolean visitNull() {
+		return true;
+	}
+	
 	public Boolean visit(ASTExpression expression) {
 		if(expression instanceof ASTBinaryExpression) {
 			return visit((ASTBinaryExpression)expression);
@@ -153,6 +157,11 @@ public class AssignableChecker implements ExpressionVisitor<Boolean> {
 
 	@Override
 	public Boolean visit(ASTNullExpression exp) {
+		return false;
+	}
+
+	@Override
+	public Boolean visit(ASTSizeExpression exp) {
 		return false;
 	}
 

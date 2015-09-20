@@ -48,8 +48,20 @@ public class IntType extends Type {
 	public boolean constructable() {
 		return true;
 	}
+
+	@Override
+	public boolean writable() {
+		return true;
+	}
 	
 	public boolean rawType() {
 		return true;
+	}
+
+	@Override
+	public boolean similar(Type type) {
+		if(type instanceof DummyType)
+			return type.similar(this);
+		return type instanceof IntType;
 	}
 }

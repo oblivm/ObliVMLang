@@ -5,11 +5,15 @@ package com.oblivm.compiler.ast.type;
 
 import java.util.List;
 
+import com.oblivm.compiler.ast.expr.ASTExpression;
+
 public class ASTNativeType extends ASTType {
 
 	public String name;
 	public List<String> bitVariables;
 	public boolean isPhantom = false;
+	
+	public List<ASTExpression> constructor = null;
 	
 	public ASTNativeType(String name, List<String> bits) {
 		this.name = name;

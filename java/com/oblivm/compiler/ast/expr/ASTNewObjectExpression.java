@@ -3,6 +3,7 @@
  */
 package com.oblivm.compiler.ast.expr;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.oblivm.compiler.ast.type.ASTRecType;
@@ -11,6 +12,14 @@ public class ASTNewObjectExpression extends ASTExpression {
 	// TODO Currently support new struct only
 	public ASTRecType type;
 	public Map<String, ASTExpression> valueMapping;
+	
+	public ASTNewObjectExpression cloneInternal() {
+		Map<String, ASTExpression> values = new HashMap<String, ASTExpression>();
+		for(Map.Entry<String, ASTExpression> ent : valueMapping.entrySet()) {
+			values.put(ent.getKey(), ent.getValue().clone());
+		}
+		return new ASTNewObjectExpression(type, values);
+	}
 	
 	public ASTNewObjectExpression(ASTRecType type, Map<String, ASTExpression> initialValue) {
 		this.type = type;

@@ -21,4 +21,9 @@ public class ASTRecExpression extends ASTExpression {
 		return base.toString() + "." + field;
 	}
 
+	@Override
+	public ASTRecExpression cloneInternal() {
+		return new ASTRecExpression(base.clone(), field);
+	}
+
 }

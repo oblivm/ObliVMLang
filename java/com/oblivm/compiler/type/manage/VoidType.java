@@ -27,7 +27,7 @@ public class VoidType extends Type {
 
 	@Override
 	public VariableConstant getBits() {
-		return new Unknown();
+		return new Constant(0);
 	}
 
 	@Override
@@ -38,5 +38,15 @@ public class VoidType extends Type {
 	@Override
 	public boolean constructable() {
 		return false;
+	}
+
+	@Override
+	public boolean writable() {
+		return false;
+	}
+	
+	@Override
+	public boolean similar(Type type) {
+		return type instanceof VoidType;
 	}
 }

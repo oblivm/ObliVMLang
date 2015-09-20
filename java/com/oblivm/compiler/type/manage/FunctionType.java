@@ -43,4 +43,36 @@ public class FunctionType extends Type {
 		return false;
 	}
 
+	@Override
+	public boolean writable() {
+		// TODO maybe writable?
+		return false;
+	}
+	
+	@Override
+	public boolean similar(Type type) {
+		if(!(type instanceof FunctionType))
+			return false;
+		FunctionType ft = (FunctionType)type;
+		if(!this.returnType.similar(ft.returnType))
+			return false;
+		if(typeParameters != null) {
+			if(ft.typeParameters == null ||
+					typeParameters.size() != ft.typeParameters.size())
+				return false;
+			for(int i=0; i<typeParameters.size(); ++i) {
+				if(!ft.typeParameters.get(i).similar(typeParameters.get(i)))
+					return false;
+			}
+		} else {
+			if(ft.typeParameters != null && ft.typeParameters.size() != 0)
+				return false;
+		}
+		for(int i=0; i<this.inputTypes.size(); ++i) {
+			if(!ft.inputTypes.get(i).similar(inputTypes.get(i)))
+				return false;
+		}
+		return true;
+	}
+
 }

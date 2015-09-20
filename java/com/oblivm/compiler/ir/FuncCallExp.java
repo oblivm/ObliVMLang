@@ -19,10 +19,19 @@ public class FuncCallExp extends Expression {
 	public Type type;
 	public Label lab;
 	public FunctionType fty;
+	public FunctionType rawFty;
 	
-	public FuncCallExp(FunctionType fty, Label lab, Type returnType, Variable base, String name, 
-			List<VariableConstant> bitParameters, List<Variable> inputs, boolean isNative) {
+	public FuncCallExp(FunctionType rawFty,
+			FunctionType fty, 
+			Label lab, 
+			Type returnType, 
+			Variable base, 
+			String name, 
+			List<VariableConstant> bitParameters, 
+			List<Variable> inputs, 
+			boolean isNative) {
 		this.bitParameters = bitParameters;
+		this.rawFty = rawFty;
 		this.fty = fty;
 		this.base = base;
 		this.lab = lab;
@@ -32,9 +41,23 @@ public class FuncCallExp extends Expression {
 		this.isNative = isNative;
 	}
 
-	public FuncCallExp(FunctionType fty, Label lab, Type returnType, String name, 
-			List<VariableConstant> bitParameters, List<Variable> inputs, boolean isNative) {
-		this(fty, lab, returnType, null, name, bitParameters, inputs, isNative);
+	public FuncCallExp(FunctionType rawFty,
+			FunctionType fty, 
+			Label lab, 
+			Type returnType, 
+			String name, 
+			List<VariableConstant> bitParameters, 
+			List<Variable> inputs, 
+			boolean isNative) {
+		this(rawFty, 
+				fty, 
+				lab, 
+				returnType, 
+				null, 
+				name, 
+				bitParameters, 
+				inputs, 
+				isNative);
 	}
 
 	@Override

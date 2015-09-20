@@ -86,13 +86,15 @@ public interface CParserConstants {
   /** RegularExpression Id. */
   int PACKAGE = 46;
   /** RegularExpression Id. */
-  int USING = 47;
+  int SIZEOF = 47;
   /** RegularExpression Id. */
-  int IDENTIFIER = 48;
+  int USING = 48;
   /** RegularExpression Id. */
-  int LETTER = 49;
+  int IDENTIFIER = 49;
   /** RegularExpression Id. */
-  int DIGIT = 50;
+  int LETTER = 50;
+  /** RegularExpression Id. */
+  int DIGIT = 51;
 
   /** Lexical state. */
   int DEFAULT = 0;
@@ -148,6 +150,7 @@ public interface CParserConstants {
     "\"ONDUMMY\"",
     "\"null\"",
     "\"package\"",
+    "\"sizeof\"",
     "\"using\"",
     "<IDENTIFIER>",
     "<LETTER>",

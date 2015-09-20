@@ -8,6 +8,10 @@ public class ASTIsDummyPredicate extends ASTPredicate {
 	
 	public ASTExpression exp;
 	
+	public ASTIsDummyPredicate cloneInternal() {
+		return new ASTIsDummyPredicate(checkDummy, exp.clone());
+	}
+	
 	public ASTIsDummyPredicate(boolean is, ASTExpression e) {
 		this.checkDummy = is;
 		this.exp = e;

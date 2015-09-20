@@ -54,7 +54,6 @@ public class RecordType extends Type {
 		}
 		return sb.toString();
 	}
-
 	
 	public String fullSpec() {
 		StringBuffer sb = new StringBuffer();
@@ -105,6 +104,36 @@ public class RecordType extends Type {
 	public boolean constructable() {
 		for(Type type : this.fields.values()) {
 			if(!type.constructable())
+				return false;
+		}
+		return true;
+	}
+
+	public boolean writable() {
+		for(Type type : this.fields.values()) {
+			if(!type.writable())
+				return false;
+		}
+		return true;
+	}
+	
+	@Override
+	public boolean similar(Type type) {
+		if(type instanceof DummyType)
+			return type.similar(this);
+		if(!(type instanceof RecordType))
+			return false;
+		RecordType rt = (RecordType)type;
+		if(!name.equals(rt.name))
+			return false;
+		if(typeParameter != null && typeParameter.size() > 0) {
+			if(rt.typeParameter == null || rt.typeParameter.size() != typeParameter.size())
+				return false;
+			for(int i=0; i<typeParameter.size(); ++i)
+				if(!typeParameter.get(i).similar(rt.typeParameter.get(i)))
+					return false;
+		} else {
+			if(rt.typeParameter != null && rt.typeParameter.size() != 0)
 				return false;
 		}
 		return true;

@@ -15,6 +15,10 @@ package com.oblivm.compiler.ast.expr;
 public class ASTFloatConstantExpression extends ASTExpression {
 	public double value;
 	public ASTExpression bitSize;
+
+	public ASTFloatConstantExpression cloneInternal() {
+		return new ASTFloatConstantExpression(value, bitSize);
+	}
 	
 	public ASTFloatConstantExpression(double v) {
 		this(v, null);

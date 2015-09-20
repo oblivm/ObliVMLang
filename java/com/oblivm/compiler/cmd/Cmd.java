@@ -3,16 +3,18 @@
  */
 package com.oblivm.compiler.cmd;
 
-import net.sourceforge.argparse4j.ArgumentParsers;
-import net.sourceforge.argparse4j.inf.ArgumentParser;
-import net.sourceforge.argparse4j.inf.ArgumentParserException;
-import net.sourceforge.argparse4j.inf.Namespace;
-
 import com.oblivm.compiler.ast.ASTProgram;
 import com.oblivm.compiler.backend.ICodeGenerator;
 import com.oblivm.compiler.frontend.IFrontEndCompiler;
+import com.oblivm.compiler.log.Info;
 import com.oblivm.compiler.parser.CParser;
 import com.oblivm.compiler.type.manage.TypeManager;
+
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.impl.Arguments;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
 
 public class Cmd {
 	public static CompilerConfig parse(Namespace ns) {
@@ -35,6 +37,12 @@ public class Cmd {
 			.choices("flexsc")
 			.setDefault("flexsc")
 			.help("The output folder");
+	    ap.addArgument("--count")
+           .dest("count")
+           .action(Arguments.storeConst())
+           .setConst("true")
+           .setDefault("false")
+           .help("whether genenerate programs to run in COUNT mode.");
 		Namespace ns = null;
 		try {
 			ns = ap.parseArgs(args);
@@ -51,10 +59,12 @@ public class Cmd {
 //			try {
 				ASTProgram prog = CParser.parse(file);
 				TypeManager tm = fc.compile(prog);
-				cg.codeGen(tm, prog.packageName, ns.getString("shell"));
+				cg.codeGen(tm, prog.packageName, ns.getString("shell"), Boolean.getBoolean(ns.getString("count")));
+				Info.LOG.log("Compiling "+file+" succeeds");
 //			} catch (Exception e) {
 //				e.printStackTrace();
 //			}
 		}
+		Info.LOG.log("Compilation finishes successfully.");
 	}
 }
