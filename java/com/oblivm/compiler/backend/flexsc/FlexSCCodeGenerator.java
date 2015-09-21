@@ -123,9 +123,9 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 					
 					fout = new FileWriter(new File(shellFolder + File.separator + "runtogether.sh"));
 					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
-							+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
+							+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass &\n");
 					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
-							+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
+							+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass\n");
 					fout.close();
 					p = Paths.get(shellFolder + File.separator + "runtogether.sh");
 					perms = Files.getPosixFilePermissions(p);
