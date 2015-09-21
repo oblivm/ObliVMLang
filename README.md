@@ -41,11 +41,11 @@ Run the hamming distance example (examples/hamming)
 --------------------------------------------------------------------------------
 Compile the example:
 
-    $ ./run-compiler.sh examples/hamming/hamming.lcc
+    $ ./run-compiler.sh 54321 examples/hamming/hamming.lcc
 
 In Cygwin
 
-    $ ./run-compiler_cygwin.sh examples/hamming/hamming.lcc
+    $ ./run-compiler_cygwin.sh 54321 examples/hamming/hamming.lcc
 
 Run the real secure computation:
 
