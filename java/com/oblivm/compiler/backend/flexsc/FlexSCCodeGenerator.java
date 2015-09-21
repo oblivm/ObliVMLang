@@ -7,6 +7,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 
 import com.oblivm.compiler.ast.ASTProgram;
 import com.oblivm.compiler.backend.ICodeGenerator;
@@ -102,16 +107,31 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 					fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
 							+"-t gen -i $1 -c "+packageName+".NoClass\n");
 					fout.close();
+					Path p = Paths.get(shellFolder + File.separator + "rungen.sh");
+					Set<PosixFilePermission> perms = Files.getPosixFilePermissions(p);
+					perms.add(PosixFilePermission.OWNER_EXECUTE);
+					Files.setPosixFilePermissions(p, perms);
+					
 					fout = new FileWriter(new File(shellFolder + File.separator + "runeva.sh"));
 					fout.write("java -cp to-run/:lib/* com.oblivm.backend.lang.inter.Cmd "
 							+"-t eva -i $1 -c "+packageName+".NoClass\n");
 					fout.close();
+					p = Paths.get(shellFolder + File.separator + "runeva.sh");
+					perms = Files.getPosixFilePermissions(p);
+					perms.add(PosixFilePermission.OWNER_EXECUTE);
+					Files.setPosixFilePermissions(p, perms);
+					
 					fout = new FileWriter(new File(shellFolder + File.separator + "runtogether.sh"));
 					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
 							+"-t gen -i $1 --config countConfig.conf -c "+packageName+".NoClass &\n");
 					fout.write("java -cp to-run:lib/* com.oblivm.backend.lang.inter.Cmd "
 							+"-t eva -i $2 --config countConfig.conf -c "+packageName+".NoClass\n");
 					fout.close();
+					p = Paths.get(shellFolder + File.separator + "runtogether.sh");
+					perms = Files.getPosixFilePermissions(p);
+					perms.add(PosixFilePermission.OWNER_EXECUTE);
+					Files.setPosixFilePermissions(p, perms);
+						
 					fout = new FileWriter(new File("./countConfig.conf"));
 					fout.write("Host: localhost\n");
 					fout.write("Port: 54321\n");
