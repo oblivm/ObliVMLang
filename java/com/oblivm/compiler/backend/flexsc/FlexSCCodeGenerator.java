@@ -52,7 +52,7 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 	
 	public Config config;
 	
-	public void codeGen(TypeManager tm, String packageName, String shellFolder, boolean count) {
+	public void codeGen(TypeManager tm, String packageName, String shellFolder, boolean count, int port) {
 		boolean trivial = false;
 		config.setPackageName(packageName);
 		
@@ -134,7 +134,7 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 						
 					fout = new FileWriter(new File("./countConfig.conf"));
 					fout.write("Host: localhost\n");
-					fout.write("Port: 54321\n");
+					fout.write("Port: "+port+"\n");
 					if(count)
 						fout.write("Mode: COUNT\n");
 					else

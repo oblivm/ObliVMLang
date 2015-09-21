@@ -30,6 +30,9 @@ public class Cmd {
 		ap.addArgument("-o", "--output")
 			.setDefault(".\bin")
 			.help("The output folder");
+		ap.addArgument("-p", "--port")
+			.setDefault("54321")
+			.help("the port to use to do test-run");
 		ap.addArgument("-s", "--shell")
 			.setDefault(".")
 			.help("The emitted shell folder");
@@ -59,7 +62,10 @@ public class Cmd {
 //			try {
 				ASTProgram prog = CParser.parse(file);
 				TypeManager tm = fc.compile(prog);
-				cg.codeGen(tm, prog.packageName, ns.getString("shell"), Boolean.getBoolean(ns.getString("count")));
+				cg.codeGen(tm, prog.packageName, 
+						ns.getString("shell"), 
+						Boolean.getBoolean(ns.getString("count")),
+						Integer.parseInt(ns.getString("port")));
 				Info.LOG.log("Compiling "+file+" succeeds");
 //			} catch (Exception e) {
 //				e.printStackTrace();
