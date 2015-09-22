@@ -38,7 +38,7 @@ T Stack@n<T>.op(int operand, T value) {
 
 
 int main@n(int[n] x, int[n] y) {
-	Stack@100<int> stack;
+	Stack@512<int> stack;
 	stack.initialize();
 	for(public int i=0; i<n; i=i+1) {
 		stack.op(y[i], x[i]);
