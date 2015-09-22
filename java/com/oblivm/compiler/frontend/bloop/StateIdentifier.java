@@ -63,20 +63,25 @@ public class StateIdentifier implements StatementVisitor<StateMachine> {
 
 	@Override
 	public StateMachine visit(ASTIfStatement ifStatement) {
-		StateMachine T = visit(ifStatement.trueBranch);
-		StateMachine F = visit(ifStatement.falseBranch);
 		ASTIfStatement newIf = new ASTIfStatement(ifStatement.cond);
-		newIf.trueBranch.addAll(T.getInitialState().stmts);
-		newIf.falseBranch.addAll(F.getInitialState().stmts);
-		T.states.remove(0);
-		F.states.remove(0);
-
-		StateMachine sm = buildOne(newIf); 
-		if(T.states.size() > 0) {
-			sm.states.addAll(T.states);
+		StateMachine sm = buildOne(newIf);
+		
+		if(ifStatement.trueBranch.size() > 0) {
+			StateMachine T = visit(ifStatement.trueBranch);
+			newIf.trueBranch.addAll(T.getInitialState().stmts);
+			T.states.remove(0);
+			if(T.states.size() > 0) {
+				sm.states.addAll(T.states);
+			}
 		}
-		if(F.states.size() > 0) {
-			sm.states.addAll(F.states);
+		
+		if(ifStatement.falseBranch.size() > 0) {
+			StateMachine F = visit(ifStatement.falseBranch);
+			newIf.falseBranch.addAll(F.getInitialState().stmts);
+			F.states.remove(0);
+			if(F.states.size() > 0) {
+				sm.states.addAll(F.states);
+			}
 		}
 		return sm;
 	}

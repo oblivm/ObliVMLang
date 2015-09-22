@@ -1,6 +1,6 @@
 package com.oblivm.backend.generated.findmax;
 
-int main@n(int[n] x, int y) {
+int main@n(int[public n] x, int y) {
 	int max = y;
 	for(public int i = 0; i<n; i = i + 1) {
 		if (x[i] > max) max = x[i];
