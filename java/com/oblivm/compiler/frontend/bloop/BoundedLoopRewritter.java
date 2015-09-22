@@ -47,6 +47,7 @@ public class BoundedLoopRewritter extends DefaultStatementExpressionVisitor<List
 
 	String stateVar = "__state";
 	String count = "__count";
+	String newStateVar;
 	
 	private int maxCount = 0;
 	
@@ -77,10 +78,12 @@ public class BoundedLoopRewritter extends DefaultStatementExpressionVisitor<List
 	public void rewrite(ASTFunctionDef func) {
 		this.function = func;
 		stateVar = "_t_state";
+		newStateVar = "_t_state_new";
 		count = "_t_count";
 		stateVar = add(stateVar);
 		count = add(count);
 		function.localVariables.add(new Pair<ASTType, String>(ASTIntType.get(32, ASTLabel.Secure), stateVar));
+		function.localVariables.add(new Pair<ASTType, String>(ASTIntType.get(32, ASTLabel.Secure), newStateVar));
 		function.localVariables.add(new Pair<ASTType, String>(ASTIntType.get(32, ASTLabel.Pub), count));
 		List<ASTStatement> stmts = new ArrayList<ASTStatement>();
 		maxCount = 0;

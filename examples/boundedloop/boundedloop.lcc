@@ -1,0 +1,11 @@
+package com.oblivm.backend.generated.boundedloop;
+
+int main@n@m(int[n] vertex, int[m] edges) {
+	int sum = 0;
+	bfor (n) (int i=0; i<n; i=i+1) {
+		bfor (m) (int j=vertex[i]; j<m && (i==n-1 || j<vertex[i+1]); j=j+1) {
+			sum = sum + edges[j];
+		}
+	}
+	return sum;
+}

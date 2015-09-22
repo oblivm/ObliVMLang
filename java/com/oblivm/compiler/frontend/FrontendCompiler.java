@@ -484,10 +484,24 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 	public IRCode visit(ASTBranchStatement stmt) {
 		if(stmt.pred == null) {
-			Variable var = this.variableValues.get(stmt.stateVar);
-			return new Assign(Label.Secure, var, new ConstExp(stmt.goTrue.getId(), var.getBits()));
+			Variable var = this.variableValues.get(stmt.stateVar+"_new");
+			Variable tmp = new Variable(var.type, var.lab, newTempVar());
+			IRCode code = new Assign(Label.Secure, tmp, new ConstExp(stmt.goTrue.getId(), var.getBits())); 
+			if(this.currentCond == null && (!this.phantom || var.lab == Label.Pub)) {
+				code = Seq.seq(code,
+						new Assign(var.type.getLabel(), var, new VarExp(tmp)));
+			} else {
+				Type type = var.type;
+				Variable dumb = new Variable(type, Label.Secure, newTempVar());
+				code = Seq.seq(code, new Assign(Label.Secure, dumb, 
+						new MuxExp(this.currentCond == null ? getPhantomVariable() : currentCond, tmp, var)));
+				code = Seq.seq(code,
+						new Assign(var.type.getLabel(), var, new VarExp(dumb)));
+			}
+			return code;
 		} else {
-			Variable var = this.variableValues.get(stmt.stateVar);
+			Variable var = this.variableValues.get(stmt.stateVar+"_new");
+			Variable tmp = new Variable(var.type, var.lab, newTempVar());
 			Pair<List<Variable>, IRCode> value = visit(stmt.pred);
 			IRCode code = value.right;
 			Variable tr = new Variable(var.type, var.lab, newTempVar());
@@ -497,7 +511,19 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 			code = Seq.seq(code,
 					new Assign(Label.Secure, fs, new ConstExp(stmt.goFalse.getId(), var.getBits()))); 
 			code = Seq.seq(code,
-					new Assign(Label.Secure, var, new MuxExp(value.left.get(0), tr, fs)));
+					new Assign(Label.Secure, tmp, new MuxExp(value.left.get(0), tr, fs)));
+			
+			if(this.currentCond == null && (!this.phantom || var.lab == Label.Pub)) {
+				code = Seq.seq(code,
+						new Assign(var.type.getLabel(), var, new VarExp(tmp)));
+			} else {
+				Type type = var.type;
+				Variable dumb = new Variable(type, Label.Secure, newTempVar());
+				code = Seq.seq(code, new Assign(Label.Secure, dumb, 
+						new MuxExp(this.currentCond == null ? getPhantomVariable() : currentCond, tmp, var)));
+				code = Seq.seq(code,
+						new Assign(var.type.getLabel(), var, new VarExp(dumb)));
+			}
 			return code;
 		}
 	}
@@ -824,6 +850,9 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 	@Override
 	public Pair<List<Variable>, IRCode> visit(ASTConstantExpression exp) {
 		VariableConstant bits = this.constructConstant(exp.bitSize);
+		if(bits == null) {
+			bits = new Constant(32);
+		}
 		Variable var = new Variable(new IntType(bits, Label.Pub), Label.Pub, newTempVar());
 		return new Pair<List<Variable>, IRCode>(one(var),
 				new Assign(Label.Pub, var, new ConstExp(exp.value, bits)));

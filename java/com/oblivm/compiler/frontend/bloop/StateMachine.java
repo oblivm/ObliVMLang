@@ -88,6 +88,7 @@ public class StateMachine {
 		}
 		ASTVariableExpression cv = new ASTVariableExpression(countVar);
 		ASTVariableExpression sv = new ASTVariableExpression(stateVar);
+		ASTVariableExpression nsv = new ASTVariableExpression(stateVar+"_new");
 		
 		ret.add(new ASTAssignStatement(cv, bound));
 		ret.add(new ASTAssignStatement(sv, new ASTConstantExpression(this.getInitialState().label.getId())));
@@ -108,6 +109,7 @@ public class StateMachine {
 				new ASTAssignStatement(cv, 
 						new ASTBinaryExpression(cv, BOP.SUB, new ASTConstantExpression(1)))
 				);
+		loop.body.add(new ASTAssignStatement(sv, nsv));
 		ret.add(loop);
 		return ret;
 	}

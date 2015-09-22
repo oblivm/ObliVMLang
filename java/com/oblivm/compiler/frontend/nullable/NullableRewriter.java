@@ -359,7 +359,7 @@ public class NullableRewriter extends DefaultStatementExpressionVisitor<ASTState
 		boolean old = rememberPredicate;
 		rememberPredicate = false;
 		Pair<ASTExpression, List<ASTType>> left = visit(orPredicate.left);
-		Pair<ASTExpression, List<ASTType>> right = visit(orPredicate.left);
+		Pair<ASTExpression, List<ASTType>> right = visit(orPredicate.right);
 		orPredicate.left = (ASTPredicate) left.left;
 		orPredicate.right = (ASTPredicate) right.left;
 		rememberPredicate = old;
