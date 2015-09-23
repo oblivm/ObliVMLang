@@ -1585,7 +1585,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		sb.append(visit(ret.code));
 		sb.append(indent(indent)+"if ((Boolean)"+ret.cond.name+") {\n");
 		indent ++;
-		sb.append("System.out.println(");
+		sb.append(indent(indent)+"System.out.println(");
 		sb.append("\"at "+ret.position.toString()+" \"+");
 		String now = "%x";
 		if(ret.toShow.type instanceof IntType) {
