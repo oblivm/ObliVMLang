@@ -35,6 +35,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -69,6 +70,7 @@ import com.oblivm.compiler.ir.BopExp.Op;
 import com.oblivm.compiler.ir.BoxNullExp;
 import com.oblivm.compiler.ir.CheckNullExp;
 import com.oblivm.compiler.ir.ConstExp;
+import com.oblivm.compiler.ir.Debug;
 import com.oblivm.compiler.ir.EnforceBitExp;
 import com.oblivm.compiler.ir.Expression;
 import com.oblivm.compiler.ir.FuncCallExp;
@@ -868,9 +870,6 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 
 //			input.addAll(tmp.left);
 			code = Seq.seq(code, tmp.right);
-			for(Variable t : tmp.left) {
-				Variable x = t;
-			}
 			for(Variable v : tmp.left) {
 				ASTType type = funcExpression.inputTypes.get(j);
 				ASTExpression typeBits = null;
@@ -1279,6 +1278,12 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 		Variable var = new Variable(new IntType(32, Label.Pub), Label.Pub, newTempVar());
 		IRCode code = new Assign(Label.Pub, var, new SizeofExp(type));
 		return new Pair<List<Variable>, IRCode>(one(var), code);
+	}
+
+	@Override
+	public IRCode visit(ASTDebugStatement stmt) {
+		Pair<List<Variable>, IRCode> code = visit(stmt.exp);
+		return new Debug(code.right, code.left.get(0), this.currentCond, stmt.beginPosition);
 	}
 
 }

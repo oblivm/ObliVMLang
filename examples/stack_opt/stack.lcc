@@ -42,7 +42,7 @@ phantom T Stack@m<T>.pop() {
 
 T Stack@m<T>.op(int operand, T value) {
   T ret;
-  if (operand == 0) {
+  if (operand == PUSH) {
      this.push(value);
   } else {
      ret = this.pop();

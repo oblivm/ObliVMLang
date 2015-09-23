@@ -41,6 +41,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -159,7 +160,8 @@ TOKEN : {
 	<NULL : "null"> |
 	<PACKAGE : "package"> |
 	<SIZEOF : "sizeof"> |
-	<USING : "using">
+	<USING : "using"> |
+	<DEBUG : "debug">
 }
 
 TOKEN : {
@@ -478,7 +480,7 @@ void TypeDef() :
 		{
 			if(tmp instanceof ASTNativeType) {
 				for (int w = 0; w < type.bitVars.size(); ++ w) {
-					((ASTNativeType)tmp).bitVariables.add(((ASTVariableExpression)type.bitVars.get(w)).var);
+					((ASTNativeType)tmp).bitVariables.add(type.bitVars.get(w));
 				}
 			}
 			if(inputs == null) {
@@ -540,7 +542,7 @@ ASTType Type(ASTLabel defaultLabel) :
 	[ <DUMMY> { isDummy = true; } ]
 	(
 		tok = <NATIVE> v = <IDENTIFIER> { 
-			type = new ASTNativeType(v.image, new ArrayList<String>());
+			type = new ASTNativeType(v.image, new ArrayList<ASTExpression>());
 			type.setBeginPosition(tok.beginLine, tok.beginColumn);
 			type.setEndPosition(v.endLine, v.endColumn);
 			return type; 
@@ -933,6 +935,13 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			{ 
 				stmt.add(bLoopStmt);
 				bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition); 
+			}
+		| tmp_tok = <DEBUG> "(" exp = BIExpression() ")" tmp_tok1 = ";"
+			{
+				ASTDebugStatement debugStmt = new ASTDebugStatement(exp);
+				debugStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
+				debugStmt.setEndPosition(tmp_tok1.endLine, tmp_tok1.endColumn);
+				stmt.add(debugStmt); 
 			}
 		| tmp_tok = <FOR> "(" init = Statement(func) cond = Predicate() ";"
 			{ 

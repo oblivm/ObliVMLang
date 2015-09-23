@@ -28,7 +28,6 @@ phantom int Stack.push(int value) {
 	return succeed;
 }
 
-
 int Stack.op(int operand, int value) {
 	int ret;
 	if (operand == 0) {
@@ -38,7 +37,6 @@ int Stack.op(int operand, int value) {
 	}
 	return ret;
 }
-
 
 int main@n(int[n] x, int[n] y) {
 	Stack stack;

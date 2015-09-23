@@ -9,6 +9,7 @@ import com.oblivm.compiler.ast.expr.ASTConstantExpression;
 import com.oblivm.compiler.ast.expr.ASTExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -39,6 +40,8 @@ public class StateIdentifier implements StatementVisitor<StateMachine> {
 			return visit((ASTOnDummyStatement)statement);
 		} else if(statement instanceof ASTBoundedWhileStatement) {
 			return visit((ASTBoundedWhileStatement)statement);
+		} else if(statement instanceof ASTDebugStatement) {
+			return visit((ASTDebugStatement)statement);
 		}
 		throw new RuntimeException("Unknown Statement!");
 	}
@@ -167,6 +170,11 @@ public class StateIdentifier implements StatementVisitor<StateMachine> {
 
 	@Override
 	public StateMachine visit(ASTUsingStatement stmt) {
+		return buildOne(stmt);
+	}
+
+	@Override
+	public StateMachine visit(ASTDebugStatement stmt) {
 		return buildOne(stmt);
 	}
 }

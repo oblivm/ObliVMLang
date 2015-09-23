@@ -30,4 +30,6 @@ public abstract interface StatementVisitor<T> {
 	public abstract T visit(ASTBoundedWhileStatement stmt);
 	
 	public abstract T visit(ASTUsingStatement stmt);
+	
+	public abstract T visit(ASTDebugStatement stmt);
 }

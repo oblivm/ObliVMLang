@@ -14,6 +14,7 @@ import com.oblivm.compiler.ir.BopExp;
 import com.oblivm.compiler.ir.BoxNullExp;
 import com.oblivm.compiler.ir.CheckNullExp;
 import com.oblivm.compiler.ir.ConstExp;
+import com.oblivm.compiler.ir.Debug;
 import com.oblivm.compiler.ir.EnforceBitExp;
 import com.oblivm.compiler.ir.FuncCallExp;
 import com.oblivm.compiler.ir.GetValueExp;
@@ -1574,6 +1575,60 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			return "factory"+vt.name+".numBits()";
 		}
 		return this.constructor(vc.type)+(vc.type.rawType() ? ".length" : ".numBits()");
+	}
+
+	@Override
+	public String visit(Debug ret) {
+		StringBuffer sb = new StringBuffer();
+		sb.append(indent(indent) + "if (env.mode == Mode.VERIFY && env.party == Party.Alice) {\n");
+		indent ++;
+		sb.append(visit(ret.code));
+		sb.append(indent(indent)+"if ((Boolean)"+ret.cond.name+") {\n");
+		indent ++;
+		sb.append("System.out.println(");
+		sb.append("\"at "+ret.position.toString()+" \"+");
+		String now = "%x";
+		if(ret.toShow.type instanceof IntType) {
+			IntType it = (IntType)ret.toShow.type;
+			if(!it.bit.isConstant(1)) {
+				now = now.replaceAll("%x", "Utils.toInt(%x)");
+			}
+			if(it.getLabel() == Label.Secure) {
+				now = now.replaceAll("%x", "env.outputToAlice(%x)");
+			}
+			now = now.replaceAll("%x", ret.toShow.name);
+		} else if(ret.toShow.type instanceof RndType) {
+			RndType it = (RndType)ret.toShow.type;
+			if(!it.bit.isConstant(1)) {
+				now = now.replaceAll("%x", "Utils.toInt(%x)");
+			}
+			now = now.replaceAll("%x", "env.outputToAlice(%x)");			
+			now = now.replaceAll("%x", ret.toShow.name);
+		} else if(ret.toShow.type instanceof FloatType) {
+			FloatType it = (FloatType)ret.toShow.type;
+			if(!it.bit.isConstant(1)) {
+				now = now.replaceAll("%x", "Utils.toFloat(%x)");
+			}
+			if(it.getLabel() == Label.Secure) {
+				now = now.replaceAll("%x", "env.outputToAlice(%x)");
+			}
+			now = now.replaceAll("%x", ret.toShow.name);
+		} else if(ret.toShow.type instanceof RecordType) {
+			now = now.replaceAll("%x", "Utils.toInt(%x)");
+			now = now.replaceAll("%x", "env.outputToAlice(%x)");
+			now = now.replaceAll("%x", ret.toShow.name+".getBits()");
+		} else if(ret.toShow.type instanceof VariableType) {
+			now = now.replaceAll("%x", "Utils.toInt(%x)");
+			now = now.replaceAll("%x", "env.outputToAlice(%x)");
+			now = now.replaceAll("%x", ret.toShow.name+".getBits()");
+		} else
+			throw new RuntimeException("debug command only supports raw types or record types.");
+		sb.append(now+");\n");
+		indent --;
+		sb.append(indent(indent) + "}\n");
+		indent --;
+		sb.append(indent(indent) + "}\n");
+		return sb.toString();
 	}
 
 }

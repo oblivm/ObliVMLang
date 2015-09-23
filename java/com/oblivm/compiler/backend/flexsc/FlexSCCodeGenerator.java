@@ -138,7 +138,7 @@ public class FlexSCCodeGenerator implements ICodeGenerator {
 					if(count)
 						fout.write("Mode: COUNT\n");
 					else
-						fout.write("Mode: REAL\n");
+						fout.write("Mode: VERIFY\n");
 					fout.close();
 				}
 			} 

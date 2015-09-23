@@ -90,11 +90,13 @@ public interface CParserConstants {
   /** RegularExpression Id. */
   int USING = 48;
   /** RegularExpression Id. */
-  int IDENTIFIER = 49;
+  int DEBUG = 49;
   /** RegularExpression Id. */
-  int LETTER = 50;
+  int IDENTIFIER = 50;
   /** RegularExpression Id. */
-  int DIGIT = 51;
+  int LETTER = 51;
+  /** RegularExpression Id. */
+  int DIGIT = 52;
 
   /** Lexical state. */
   int DEFAULT = 0;
@@ -152,6 +154,7 @@ public interface CParserConstants {
     "\"package\"",
     "\"sizeof\"",
     "\"using\"",
+    "\"debug\"",
     "<IDENTIFIER>",
     "<LETTER>",
     "<DIGIT>",

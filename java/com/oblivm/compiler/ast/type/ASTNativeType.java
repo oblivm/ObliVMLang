@@ -10,12 +10,12 @@ import com.oblivm.compiler.ast.expr.ASTExpression;
 public class ASTNativeType extends ASTType {
 
 	public String name;
-	public List<String> bitVariables;
+	public List<ASTExpression> bitVariables;
 	public boolean isPhantom = false;
 	
 	public List<ASTExpression> constructor = null;
 	
-	public ASTNativeType(String name, List<String> bits) {
+	public ASTNativeType(String name, List<ASTExpression> bits) {
 		this.name = name;
 		this.bitVariables = bits;
 	}

@@ -25,6 +25,7 @@ import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.expr.ExpressionVisitor;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -113,6 +114,8 @@ public abstract class DefaultStatementExpressionVisitor<T1, T2> implements State
 			return visit((ASTBoundedWhileStatement)statement);
 		} else if(statement instanceof ASTUsingStatement) {
 			return visit((ASTUsingStatement)statement);
+		} else if(statement instanceof ASTDebugStatement) {
+			return visit((ASTDebugStatement)statement);
 		}
 			throw new RuntimeException("Unknown Statement!");
 	}

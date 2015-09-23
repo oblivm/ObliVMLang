@@ -35,6 +35,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -462,6 +463,7 @@ public class NullableRewriter extends DefaultStatementExpressionVisitor<ASTState
 
 	@Override
 	public ASTStatement visit(ASTUsingStatement stmt) {
+		stmt.body = visit(stmt.body);
 		return stmt;
 	}
 
@@ -469,5 +471,11 @@ public class NullableRewriter extends DefaultStatementExpressionVisitor<ASTState
 	public Pair<ASTExpression, List<ASTType>> visit(ASTSizeExpression exp) {
 		return new Pair<ASTExpression, List<ASTType>>(exp, 
 				one(ASTIntType.get(32, ASTLabel.Pub)));
+	}
+
+	@Override
+	public ASTStatement visit(ASTDebugStatement stmt) {
+		stmt.exp = visit(stmt.exp).left;
+		return stmt;
 	}
 }

@@ -30,6 +30,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -346,6 +347,11 @@ public class BitChecker extends DefaultVisitor<Boolean, Boolean, Boolean> {
 	@Override
 	public Boolean visit(ASTSizeExpression exp) {
 		return visit(exp.type);
+	}
+
+	@Override
+	public Boolean visit(ASTDebugStatement stmt) {
+		return visit(stmt.exp);
 	}
 
 }

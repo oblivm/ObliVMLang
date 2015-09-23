@@ -28,6 +28,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -250,6 +251,11 @@ public class BoundedLoopRewritter extends DefaultStatementExpressionVisitor<List
 	@Override
 	public ASTExpression visit(ASTSizeExpression exp) {
 		return exp;
+	}
+
+	@Override
+	public List<ASTStatement> visit(ASTDebugStatement stmt) {
+		return buildOne(stmt);
 	}
 
 }

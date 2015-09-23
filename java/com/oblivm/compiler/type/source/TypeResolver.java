@@ -37,6 +37,7 @@ import com.oblivm.compiler.ast.expr.ASTTupleExpression;
 import com.oblivm.compiler.ast.expr.ASTVariableExpression;
 import com.oblivm.compiler.ast.stmt.ASTAssignStatement;
 import com.oblivm.compiler.ast.stmt.ASTBoundedWhileStatement;
+import com.oblivm.compiler.ast.stmt.ASTDebugStatement;
 import com.oblivm.compiler.ast.stmt.ASTFuncStatement;
 import com.oblivm.compiler.ast.stmt.ASTIfStatement;
 import com.oblivm.compiler.ast.stmt.ASTOnDummyStatement;
@@ -109,8 +110,10 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 		for(List<ASTType> i : program.typeVarDef.values()) {
 			if(i != null)
 				for(ASTType ty : i) {
-					if(!(ty instanceof ASTVariableType))
-						throw new RuntimeException("Type parameters in definition must be variables!");
+					if(!(ty instanceof ASTVariableType)) {
+						Bugs.LOG.log(ty.beginPosition, "Type parameters in definition must be variables!");
+						System.exit(1);
+					}
 				}
 		}
 
@@ -172,16 +175,25 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 	@Override
 	public ASTType visit(ASTNativeType type) {
 		if(copy) {
-			// TODO instantiate bit variables
 			ASTNativeType nt = new ASTNativeType(type.name, type.bitVariables);
 			if(type.constructor != null) {
 				nt.constructor = new ArrayList<ASTExpression>();
-				for(ASTExpression exp : nt.constructor) {
+				for(ASTExpression exp : type.constructor) {
 					nt.constructor.add(visit(exp));
 				}
 			}
 			return nt;
 		} else {
+			List<ASTExpression> bits = new ArrayList<ASTExpression>();
+			for(ASTExpression exp : type.bitVariables) {
+				if(exp instanceof ASTVariableExpression) {
+					ASTVariableExpression ve = (ASTVariableExpression)exp;
+					bits.add(this.bitVars.get(ve.var));
+				} else {
+					bits.add(exp);
+				}
+			}
+			type.bitVariables = bits;
 			if(type.constructor != null) {
 				for(int i=0; i<type.constructor.size(); ++i) {
 					type.constructor.set(i, visit(type.constructor.get(i)));
@@ -193,9 +205,10 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 
 	@Override
 	public ASTType visit(ASTRecType type) {
-		if(resolvingSet.contains(type.name))
-			throw new RuntimeException("Recursive type is forbidden!");
-
+		if(resolvingSet.contains(type.name)) {
+			Bugs.LOG.log(type.beginPosition, "Recursive type is forbidden!");
+			System.exit(1);
+		}
 
 		ASTRecType ret = new ASTRecType(type.name, type.lab);
 
@@ -322,7 +335,16 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 						Bugs.LOG.log(type.beginPosition, "Bit parameters don't match.");
 						System.exit(1);
 					}
-					ASTType ret = visit(ent.right);
+					ASTNativeType nt = (ASTNativeType) ent.right;
+					nt = new ASTNativeType(nt.name, nt.bitVariables);
+					if(((ASTNativeType)ent.right).constructor != null) {
+						nt.constructor = new ArrayList<ASTExpression>();
+						for(ASTExpression exp : ((ASTNativeType)ent.right).constructor) {
+							nt.constructor.add(exp);
+						}
+					}
+
+					ASTType ret = visit(nt);
 					this.typeVars = old_ty;
 					this.bitVars = old_bit;
 					return ret;
@@ -901,6 +923,16 @@ public class TypeResolver extends DefaultVisitor<ASTStatement, ASTExpression, AS
 			exp.type = visit(exp.type);
 			return exp;
 		}
+	}
+
+	@Override
+	public ASTStatement visit(ASTDebugStatement stmt) {
+		if(copy) {
+			stmt = new ASTDebugStatement(visit(stmt.exp));
+		} else {
+			stmt.exp = visit(stmt.exp);
+		}
+		return stmt;
 	}
 
 }

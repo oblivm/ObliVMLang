@@ -29,6 +29,8 @@ public abstract class IRVisitor<T1, T2> {
 			return visit((While)ast);
 		} else if(ast instanceof UsingBlock) {
 			return visit((UsingBlock)ast);
+		} else if(ast instanceof Debug) {
+			return visit((Debug)ast);
 		} else
 			throw new RuntimeException("Unknown SCVM statement!");
 	}
@@ -113,4 +115,5 @@ public abstract class IRVisitor<T1, T2> {
 	public abstract T1 visit(ReverseRecordAssign assign);
 	public abstract T1 visit(Ret ret);
 	public abstract T1 visit(UsingBlock ret);
+	public abstract T1 visit(Debug ret);
 }

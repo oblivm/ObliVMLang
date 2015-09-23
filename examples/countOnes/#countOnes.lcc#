@@ -1,0 +1,32 @@
+package com.oblivm.backend.generated.hamming;
+
+int main@n(int@n x, int@n y) {
+    return countOnes_opt2@n(x ^ y);
+}
+
+int countOnes@n(int@n x) {
+    int ret = 0, tmp;
+    for(public int i=0; i<n; i=i+1) {
+    	       tmp = x$i$;
+    	       ret = ret + tmp;
+    }
+    return ret;
+}
+
+int countOnes_opt1@n(int@n x) {
+    int@log(n) ret = 0, tmp;
+    for(public int i=0; i<n; i=i+1) {
+    	       tmp = x$i$;
+    	       ret = ret + tmp;
+    }
+    return ret;    
+}
+
+int@log(n) countOnes_opt2@n(int@n x) {
+  if(n==1) return x;
+  int@log(n/2+1)	first = countOnes_opt2@(n/2)(x$0~n/2$);
+  int@log(n-n/2+1)	second = countOnes_opt2@(n-n/2)(x$n/2~n$);
+  int@log(n+1)		r = first;
+  r = r + second;
+  return r;
+}
