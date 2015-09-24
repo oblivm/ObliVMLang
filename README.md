@@ -67,10 +67,10 @@ Under tools/ folder, the following tools are available:
 References
 --------------------------------------------------------------------------------
 
-\[LWNYS12] [
+\[LWNYS15] [
   _ObliVM: A Programming Framework for Secure Computation_
 ] (http://www.cs.umd.edu/~liuchang/paper/oakland2015-oblivm.pdf)
   Chang Liu, Xiao Shuan Wang, Kartik Nayak, Yan Huang, Elaine Shi
-  IEEE S&P 2012
+  IEEE S&P 2015
 
 [Chang Liu]: http://www.cs.umd.edu/~liuchang/
