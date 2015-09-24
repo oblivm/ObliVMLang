@@ -13,6 +13,7 @@ hs_err_pid*
 
 # temporarily editing files, not ready for release
 /ignore/
+/debug_prog/
 
 # java cc
 /javacc-5.0/

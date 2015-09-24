@@ -466,7 +466,14 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 				return null;
 			}
 			ASTIntType ty2 = (ASTIntType)ty;
-			binaryExpression.type = ASTIntType.get(ty1.getBits(), ty1.getLabel().meet(ty2.getLabel())); 
+			binaryExpression.type = ASTIntType.get(ty1.getBits(), ty1.getLabel().meet(ty2.getLabel()));
+			if(binaryExpression.op == ASTBinaryExpression.BOP.SHL || binaryExpression.op == ASTBinaryExpression.BOP.SHR) {
+				if(ty2.getLabel() == ASTLabel.Secure) {
+					Bugs.LOG.log(binaryExpression.right.beginPosition,
+							"bit-shift operator doesn't take secure input");
+					return null;
+				}
+			}
 			return buildOne(binaryExpression.type);
 		} else if (ty instanceof ASTFloatType) {
 			ASTFloatType ty1 = (ASTFloatType)ty;

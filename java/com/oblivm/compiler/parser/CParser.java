@@ -1697,7 +1697,7 @@ public class CParser implements CParserConstants {
         if (jj_2_10(2)) {
           jj_consume_token(ELSE);
           ifStmt.falseBranch = Statement(func);
-                                                                                                                                                        ifStmt.setEndPosition(Helper.last(ifStmt.falseBranch).endPosition);
+                                                                                                                                                        ifStmt.setEndPosition(token.endLine, token.endColumn);
         } else {
           ;
         }
@@ -1791,7 +1791,7 @@ public class CParser implements CParserConstants {
                                 bLoopStmt = new ASTBoundedWhileStatement(cond, bound);
                                 bLoopStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
         bLoopStmt.body = Statement(func);
-                                bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition);
+                                bLoopStmt.setEndPosition(token.endLine, token.endColumn);
                                 bLoopStmt.body.addAll(incre);
                                 stmt.add(bLoopStmt);
         break;

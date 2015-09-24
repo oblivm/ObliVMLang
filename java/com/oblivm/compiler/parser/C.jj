@@ -913,7 +913,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 													ifStmt.setEndPosition(Helper.last(ifStmt.trueBranch).endPosition);
 												}
 			[ LOOKAHEAD(2) <ELSE> ifStmt.falseBranch = Statement(func) {
-																			ifStmt.setEndPosition(Helper.last(ifStmt.falseBranch).endPosition);
+																			ifStmt.setEndPosition(token.endLine, token.endColumn);
 																	   } 
 			]
 			{ stmt.add(ifStmt); }
@@ -980,7 +980,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			} 
 			bLoopStmt.body = Statement(func)
 			{
-				bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition); 
+				bLoopStmt.setEndPosition(token.endLine, token.endColumn); 
 				bLoopStmt.body.addAll(incre);
 				stmt.add(bLoopStmt); 
 			}

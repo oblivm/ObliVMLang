@@ -732,11 +732,15 @@ public class FrontendCompiler extends DefaultVisitor<IRCode, Pair<List<Variable>
 		}
 
 		Pair<List<Variable>, IRCode> right = visit(exp.right);
-		Variable rv = right.left.get(0);
-		if(!(lv.type instanceof IntType) && !(lv.type instanceof FloatType)) {
+		Variable rv = right.left.get(0), var;;
+		if(lv.type instanceof IntType) {
+			IntType it = (IntType)lv.type;
+			var = new Variable(new IntType(it.bit, lv.lab.meet(rv.lab)), lv.lab.meet(rv.lab), newTempVar());
+		} else if(lv.type instanceof FloatType) {
+			FloatType ft = (FloatType)lv.type;
+			var = new Variable(new FloatType(ft.bit, lv.lab.meet(rv.lab)), lv.lab.meet(rv.lab), newTempVar());
+		} else
 			throw new RuntimeException("Binary expression can be operated between only int values or float values.");
-		}
-		Variable var = new Variable(lv.type, lv.lab.meet(rv.lab), newTempVar());
 
 		IRCode assign;
 		if(exp.op == BOP.ADD) {
