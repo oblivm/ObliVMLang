@@ -2051,7 +2051,7 @@ public class CParser implements CParserConstants {
         n = RangeShiftExpression();
                                                                                                 old_e = e;
                                                                                                 e = new ASTBinaryExpression(e, BOP.AND, n);
-                                                                                                e.setBeginPosition(e.beginPosition);
+                                                                                                e.setBeginPosition(old_e.beginPosition);
                                                                                                 e.setEndPosition(n.beginPosition);
         break;
       case 71:
@@ -2101,7 +2101,7 @@ public class CParser implements CParserConstants {
         n = RangeAdditiveExpression();
                                 old_e = e;
                                 e = new ASTBinaryExpression(e, BOP.SHL, n);
-                                e.setBeginPosition(e.beginPosition);
+                                e.setBeginPosition(old_e.beginPosition);
                                 e.setEndPosition(n.beginPosition);
         break;
       case 74:
@@ -2109,7 +2109,7 @@ public class CParser implements CParserConstants {
         n = RangeAdditiveExpression();
                                 old_e = e;
                                 e = new ASTBinaryExpression(e, BOP.SHR, n);
-                                e.setBeginPosition(e.beginPosition);
+                                e.setBeginPosition(old_e.beginPosition);
                                 e.setEndPosition(n.beginPosition);
         break;
       default:

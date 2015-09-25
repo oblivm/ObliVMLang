@@ -1109,7 +1109,7 @@ ASTExpression RangeExpression() :
 		"&" n = RangeShiftExpression() 		{ 
 												old_e = e; 
 												e = new ASTBinaryExpression(e, BOP.AND, n); 
-												e.setBeginPosition(e.beginPosition); 
+												e.setBeginPosition(old_e.beginPosition); 
 												e.setEndPosition(n.beginPosition); 
 											}
 		| "|" n = RangeShiftExpression() 	{ 
@@ -1139,7 +1139,7 @@ ASTExpression RangeShiftExpression() :
 			{ 
 				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHL, n); 
-				e.setBeginPosition(e.beginPosition); 
+				e.setBeginPosition(old_e.beginPosition); 
 				e.setEndPosition(n.beginPosition); 
 			}
 			| 
@@ -1147,7 +1147,7 @@ ASTExpression RangeShiftExpression() :
 			{ 
 				old_e = e; 
 				e = new ASTBinaryExpression(e, BOP.SHR, n); 
-				e.setBeginPosition(e.beginPosition); 
+				e.setBeginPosition(old_e.beginPosition); 
 				e.setEndPosition(n.beginPosition); 
 			}
 		)* { return e; }

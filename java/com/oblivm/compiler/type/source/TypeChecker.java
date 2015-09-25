@@ -479,16 +479,18 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			ASTFloatType ty1 = (ASTFloatType)ty;
 			ty = assertOne(visit(binaryExpression.right));
 			if(!(ty instanceof ASTFloatType)) {
-				Bugs.LOG.log(binaryExpression.left.beginPosition, 
-						"binary operation can be operated only between a float value and a non-float value");
+				if(ty != null)
+					Bugs.LOG.log(binaryExpression.left.beginPosition, 
+							"binary operation can be operated only between a float value and a non-float value");
 				return null;
 			}
 			ASTFloatType ty2 = (ASTFloatType)ty;
 			binaryExpression.type = ASTFloatType.get(ty1.getBits(), ty1.getLabel().meet(ty2.getLabel())); 
 			return buildOne(binaryExpression.type);
 		} else {
-			Bugs.LOG.log(binaryExpression.right.beginPosition, 
-					"binary operation can be operated only between int values or float values");
+			if(ty != null)
+				Bugs.LOG.log(binaryExpression.right.beginPosition, 
+						"binary operation can be operated only between int values or float values");
 			return null;
 		}
 	}
