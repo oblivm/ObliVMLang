@@ -1583,8 +1583,10 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		sb.append(indent(indent) + "if (env.mode == Mode.VERIFY && env.party == Party.Alice) {\n");
 		indent ++;
 		sb.append(visit(ret.code));
-		sb.append(indent(indent)+"if ((Boolean)"+ret.cond.name+") {\n");
-		indent ++;
+		if(ret.cond != null) {
+			sb.append(indent(indent)+"if ((Boolean)"+ret.cond.name+") {\n");
+			indent ++;
+		}
 		sb.append(indent(indent)+"System.out.println(");
 		sb.append("\"at "+ret.position.toString()+" \"+");
 		String now = "%x";
@@ -1625,8 +1627,10 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			throw new RuntimeException("debug command only supports raw types or record types.");
 		sb.append(now+");\n");
 		indent --;
-		sb.append(indent(indent) + "}\n");
-		indent --;
+		if(ret.cond != null) {
+			sb.append(indent(indent) + "}\n");
+			indent --;
+		}
 		sb.append(indent(indent) + "}\n");
 		return sb.toString();
 	}
