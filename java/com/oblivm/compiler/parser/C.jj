@@ -910,7 +910,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 												ifStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
 										  } 
 			ifStmt.trueBranch = Statement(func) {
-													ifStmt.setEndPosition(Helper.last(ifStmt.trueBranch).endPosition);
+													ifStmt.setEndPosition(token.endLine, token.endColumn);
 												}
 			[ LOOKAHEAD(2) <ELSE> ifStmt.falseBranch = Statement(func) {
 																			ifStmt.setEndPosition(token.endLine, token.endColumn);
@@ -923,7 +923,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 														} 
 			whileStmt.body = Statement(func)
 			{ 
-				whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
+				whileStmt.setEndPosition(token.endLine, token.endColumn);
 				stmt.add(whileStmt); 
 			}
 		| tmp_tok = <BWHILE> "(" bound = RangeExpression() ")" "(" cond = Predicate() ")" 
@@ -934,7 +934,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			bLoopStmt.body = Statement(func)
 			{ 
 				stmt.add(bLoopStmt);
-				bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition); 
+				bLoopStmt.setEndPosition(token.endLine, token.endColumn); 
 			}
 		| tmp_tok = <DEBUG> "(" exp = BIExpression() ")" tmp_tok1 = ";"
 			{
@@ -959,7 +959,7 @@ List<ASTStatement> Statement(ASTFunctionDef func) :
 			} 
 			whileStmt.body = Statement(func)
 			{
-				whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
+				whileStmt.setEndPosition(token.endLine, token.endColumn);
 				whileStmt.body.addAll(incre);
 				stmt.add(whileStmt); 
 			}

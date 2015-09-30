@@ -1580,15 +1580,15 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 	@Override
 	public String visit(Debug ret) {
 		StringBuffer sb = new StringBuffer();
-		sb.append(indent(indent) + "if (env.mode == Mode.VERIFY && env.party == Party.Alice) {\n");
+		sb.append(indent(indent) + "if (env.mode == Mode.VERIFY) {\n");
 		indent ++;
+		sb.append(indent(indent)+"long old_and_gates = env.numOfAnds;\n");
 		sb.append(visit(ret.code));
 		if(ret.cond != null) {
 			sb.append(indent(indent)+"if ((Boolean)"+ret.cond.name+") {\n");
 			indent ++;
 		}
-		sb.append(indent(indent)+"System.out.println(");
-		sb.append("\"at "+ret.position.toString()+" \"+");
+
 		String now = "%x";
 		if(ret.toShow.type instanceof IntType) {
 			IntType it = (IntType)ret.toShow.type;
@@ -1597,6 +1597,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			}
 			if(it.getLabel() == Label.Secure) {
 				now = now.replaceAll("%x", "env.outputToAlice(%x)");
+//				now = now.replaceAll("%x", "((Boolean[])%x)");
 			}
 			now = now.replaceAll("%x", ret.toShow.name);
 		} else if(ret.toShow.type instanceof RndType) {
@@ -1605,6 +1606,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 				now = now.replaceAll("%x", "Utils.toInt(%x)");
 			}
 			now = now.replaceAll("%x", "env.outputToAlice(%x)");			
+//			now = now.replaceAll("%x", "((Boolean[])%x)");
 			now = now.replaceAll("%x", ret.toShow.name);
 		} else if(ret.toShow.type instanceof FloatType) {
 			FloatType it = (FloatType)ret.toShow.type;
@@ -1613,6 +1615,7 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 			}
 			if(it.getLabel() == Label.Secure) {
 				now = now.replaceAll("%x", "env.outputToAlice(%x)");
+//				now = now.replaceAll("%x", "((Boolean[])%x)");
 			}
 			now = now.replaceAll("%x", ret.toShow.name);
 		} else if(ret.toShow.type instanceof RecordType) {
@@ -1622,15 +1625,28 @@ public class CodeGenVisitor extends IRVisitor<String, Pair<String, String>> {
 		} else if(ret.toShow.type instanceof VariableType) {
 			now = now.replaceAll("%x", "Utils.toInt(%x)");
 			now = now.replaceAll("%x", "env.outputToAlice(%x)");
+//			now = now.replaceAll("%x", "((Boolean[])%x)");
 			now = now.replaceAll("%x", ret.toShow.name+".getBits()");
 		} else
 			throw new RuntimeException("debug command only supports raw types or record types.");
+
+		sb.append(indent(indent)+"if (env.party == Party.Alice) {\n");
+		indent ++;
+		sb.append(indent(indent)+"System.out.println(");
+		sb.append("\"at "+ret.position.toString()+" \"+");
 		sb.append(now+");\n");
 		indent --;
+		sb.append(indent(indent)+"} else {\n");
+		indent ++;
+		sb.append(indent(indent) + now+";\n");
+		indent --;
+		sb.append(indent(indent)+"}\n");
 		if(ret.cond != null) {
-			sb.append(indent(indent) + "}\n");
 			indent --;
+			sb.append(indent(indent) + "}\n");
 		}
+		sb.append(indent(indent)+"env.numOfAnds = old_and_gates;\n");
+		indent --;
 		sb.append(indent(indent) + "}\n");
 		return sb.toString();
 	}

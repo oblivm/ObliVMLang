@@ -1693,7 +1693,7 @@ public class CParser implements CParserConstants {
                                                                                                 ifStmt = new ASTIfStatement(cond);
                                                                                                 ifStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
         ifStmt.trueBranch = Statement(func);
-                                                                                                        ifStmt.setEndPosition(Helper.last(ifStmt.trueBranch).endPosition);
+                                                                                                        ifStmt.setEndPosition(token.endLine, token.endColumn);
         if (jj_2_10(2)) {
           jj_consume_token(ELSE);
           ifStmt.falseBranch = Statement(func);
@@ -1711,7 +1711,7 @@ public class CParser implements CParserConstants {
                                                                                                                         whileStmt = new ASTWhileStatement(cond);
                                                                                                                         whileStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
         whileStmt.body = Statement(func);
-                                whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
+                                whileStmt.setEndPosition(token.endLine, token.endColumn);
                                 stmt.add(whileStmt);
         break;
       case BWHILE:
@@ -1726,7 +1726,7 @@ public class CParser implements CParserConstants {
                                         bLoopStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
         bLoopStmt.body = Statement(func);
                                 stmt.add(bLoopStmt);
-                                bLoopStmt.setEndPosition(Helper.last(bLoopStmt.body).endPosition);
+                                bLoopStmt.setEndPosition(token.endLine, token.endColumn);
         break;
       case DEBUG:
         tmp_tok = jj_consume_token(DEBUG);
@@ -1755,7 +1755,7 @@ public class CParser implements CParserConstants {
                                 whileStmt = new ASTWhileStatement(cond);
                                 whileStmt.setBeginPosition(tmp_tok.beginLine, tmp_tok.beginColumn);
         whileStmt.body = Statement(func);
-                                whileStmt.setEndPosition(Helper.last(whileStmt.body).endPosition);
+                                whileStmt.setEndPosition(token.endLine, token.endColumn);
                                 whileStmt.body.addAll(incre);
                                 stmt.add(whileStmt);
         break;
