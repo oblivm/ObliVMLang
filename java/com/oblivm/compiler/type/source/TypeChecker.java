@@ -627,7 +627,7 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			ASTType baseType = assertOne(visit(recObj.base));
 			funcExpression.baseType = baseType;
 			if(baseType == null) {
-				Bugs.LOG.log(recObj.base.beginPosition, "unknown object type");
+				Bugs.LOG.log(recObj.beginPosition, "unknown object type");
 				return null;
 			}
 			for(ASTFunction func : program.functionDef) {

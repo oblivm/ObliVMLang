@@ -34,7 +34,7 @@ int@log(n+1) countOnes@n(int@n x) {
   int@log(n/2+1) first = countOnes@(n/2)(x$0~n/2$);
   int@log(n-n/2+1) second = countOnes@(n-n/2)(x$n/2~n$);
   int@log(n+1) r;
-  if(n%2==0) {
+  if(log(n/2+1)==log(n-n/2+1)) {
 	  Pair<bit, Int@log(n/2+1)> ret = add@log(n/2+1)(first, second);
 	  r = ret.right.v;
 	  r$log(n+1)-1$ = ret.left.v;

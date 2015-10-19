@@ -269,9 +269,11 @@ ASTExpression AtomicExpression() :
 					  )
 				)*
 				[ var = TypeVariablesInExp() ]
-			  "(" { ret = new ASTFuncExpression(e, bits, var);
-			  		ret.setBeginPosition(e.beginPosition);
-			  		e = ret; 
+			  "(" 
+			  		{ 
+			  			ret = new ASTFuncExpression(e, bits, var);
+			  			ret.setBeginPosition(e.beginPosition);
+			  			e = ret; 
 			  		}
 				[
 					(
@@ -291,7 +293,32 @@ ASTExpression AtomicExpression() :
 						| par = BIExpression() { ((ASTFuncExpression)e).addInputs(par); })
 					)*
 				]
-				tok1 = ")" { bits = null; ret.setEndPosition(tok1.endLine, tok1.endColumn); }
+				tok1 = ")" {
+					bits = null; ret.setEndPosition(tok1.endLine, tok1.endColumn);
+					ASTFuncExpression fe = (ASTFuncExpression)ret;
+					if(fe.obj instanceof ASTVariableExpression) {
+						String name = ((ASTVariableExpression)fe.obj).var;
+						if(name.equals("log")) {
+							if(fe.inputs.size() != 1) {
+		                        Bugs.LOG.log(ret.beginPosition, "log function takes exactly 1 input.");
+		                        System.exit(1);
+							}
+							if(fe.typeVars != null && fe.typeVars.size() != 0) {
+		                        Bugs.LOG.log(ret.beginPosition, "log function should not have type variables.");
+		                        System.exit(1);
+							}
+							if(fe.bitParameters != null && fe.bitParameters.size() != 0) {
+		                        Bugs.LOG.log(ret.beginPosition, "log function should not have bit parameters.");
+		                        System.exit(1);
+							}
+							ASTLogExpression loge = new ASTLogExpression(fe.inputs.get(0).right);
+							loge.setBeginPosition(ret.beginPosition);
+							loge.setEndPosition(ret.endPosition);
+							ret = loge;
+							e = loge;
+						}
+					}
+				}
 		)* 
 	[ 
 		LOOKAHEAD(2) "$" { rangel = ranger = null; } rangel = RangeExpression() 
