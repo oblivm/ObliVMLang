@@ -309,7 +309,7 @@ public class TypeEmittable extends Emittable {
 					template = tmplt.replaceAll("%i", "i"+now).replaceAll("%x", template);
 				}
 				out.println(prefix + "{");
-				out.println(prefix + "\ttmp_b = "+template.replaceAll("%x", ent.getKey())+(!(at.type instanceof RecordType) ? ";" : ".getBits();"));
+				out.println(prefix + "\ttmp_b = "+template.replaceAll("%x", ent.getKey())+((at.type.rawType()) ? ";" : ".getBits();"));
 				out.println(prefix + "\tSystem.arraycopy(tmp_b, 0, ret, now, tmp_b.length);");
 				out.println(prefix + "\tnow += tmp_b.length;");
 				out.println(prefix + "}");

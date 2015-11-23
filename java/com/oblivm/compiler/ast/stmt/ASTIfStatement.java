@@ -42,4 +42,8 @@ public class ASTIfStatement extends ASTStatement {
 		}
 		return sb.toString();
 	}
+	
+	public String toString() {
+		return toString(0);
+	}
 }

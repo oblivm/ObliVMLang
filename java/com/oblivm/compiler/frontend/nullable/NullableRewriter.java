@@ -463,7 +463,15 @@ public class NullableRewriter extends DefaultStatementExpressionVisitor<ASTState
 
 	@Override
 	public ASTStatement visit(ASTUsingStatement stmt) {
+		Map<String, ASTType> old = this.variableMapping;
+		this.variableMapping = new HashMap<String, ASTType>(old);
+		for(Pair<String, ASTExpression> i : stmt.use) {
+			Pair<ASTExpression, List<ASTType>> tmp = visit(i.right);
+			i.right = tmp.left;
+			this.variableMapping.put(i.left, tmp.right.get(0));
+		}
 		stmt.body = visit(stmt.body);
+		this.variableMapping = old;
 		return stmt;
 	}
 

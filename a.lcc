@@ -1,0 +1,18 @@
+package test;
+
+int main(int a, int b) {
+    int16 x = 4096;
+    x = 100 + x;
+    debug(x);
+    int16 t1 = x % 9;
+    debug(t1);
+    int8 x8 = x;
+    int8 nine = 9;
+    int8 t8 = x8 % nine;
+    debug(x);
+    debug(nine);
+    debug(t8);
+    int8 t = x % 9;
+    debug(t);
+    return t;
+}

@@ -513,7 +513,10 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 			if(this.variableMapping.get(name) instanceof ASTFunctionType) {
 				funcExpression.baseType = null;
 				ASTFunctionType type = (ASTFunctionType)this.variableMapping.get(name);
-				if(this.secureContext == ASTLabel.Secure && !type.isPhantom) {
+				if(this.secureContext == ASTLabel.Secure && !type.isPhantom
+						&& funcExpression.baseType != null
+						// TODO check if the function doesn't modify the heap, then allow it.
+						) {
 					Bugs.LOG.log(funcExpression.beginPosition, 
 							"cannot call non-phantom function in a high secure context");
 					return null;
@@ -599,7 +602,10 @@ public class TypeChecker extends DefaultStatementExpressionVisitor<Boolean, List
 					}
 
 					obj.type = resolver.visit(func.getType());
-					if(this.secureContext == ASTLabel.Secure && !func.getType().isPhantom) {
+					if(this.secureContext == ASTLabel.Secure && !func.getType().isPhantom
+							&& func.baseType != null
+							// FIX this is not safe: a function can modify the heap pointed by its input.
+							) {
 						Bugs.LOG.log(funcExpression.beginPosition, 
 								"cannot call non-phantom function in a high secure context");
 						return null;

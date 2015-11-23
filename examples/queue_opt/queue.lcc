@@ -1,0 +1,73 @@
+package com.oblivm.backend.generated.queue;
+
+#define ADD 0
+#define POLL 1
+
+typedef intp_ = public int;
+typedef NonRecursiveORAM@m<T> = native CircuitOram(m, sizeof(T));
+
+rnd@m RND(intp_32 m) = native intLib.randBools;
+
+phantom QueueNode@m<T> NonRecursiveORAM@m<T>.readAndRemove(int@m id, rnd@m pos) = native conditionalReadAndRemove;
+phantom void NonRecursiveORAM@m<T>.add(int@m id, int@m pos, QueueNode@m<T> node) = native conditionalPutBack;
+ 
+struct QueueNode@m<T> {
+   rnd@m nextPos;
+   T data;
+};
+ 
+struct Queue@m<T> {
+   int@m curId, tailId, tailPos;
+   rnd@m curPos;
+   NonRecursiveORAM@(1 << m)< QueueNode@m<T> > oram;
+};
+
+void Queue@m<T>.init() {
+	this.curId = 0;
+	this.tailId = 0;
+	this.curPos = RND(m);
+	this.tailPos = this.curPos;
+}
+
+phantom void Queue@m<T>.add(T item) {
+	int@m nxtId = tailId + 1;
+	rnd@m nxtPos = RND(m);
+	int@m oldTailPos = this.tailPos;
+	
+	this.tailPos = nxtPos; // reveal nextPos to secret
+	this.tailId = this.tailId + 1; // assuming queue will not overflow
+	
+    QueueNode@m<T> node = 
+         QueueNode@m{T} (nextPos = nxtPos,
+                data = item);
+    this.oram.add(this.tailId - 1, oldTailPos, node);
+}
+
+phantom T Queue@m<T>.poll() {
+   T ret;
+   if(curId != tailId) {
+   		QueueNode@m<T> block = this.oram.readAndRemove(this.curId, this.curPos);
+   		this.curId = this.curId + 1;
+   		ret, this.curPos = block.(data, nextPos);
+   }
+   return ret;
+}
+
+T Queue@m<T>.op(int operand, T value) {
+  T ret;
+  if (operand == ADD) {
+     this.add(value);
+  } else {
+     ret = this.poll();
+  }
+  return ret;
+}
+
+int main@n(int[n] x, int[n] y) {
+  Queue@9<int> queue;
+  queue.init();
+  for(intp_ i=0; i<n; i=i+1) {
+     queue.op(y[i], x[i]);
+  }
+  return queue.poll();
+}
