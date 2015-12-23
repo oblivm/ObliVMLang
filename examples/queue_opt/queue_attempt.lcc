@@ -1,0 +1,152 @@
+package default;
+//package com.oblivm.backend.generated.queue; //CHECK!
+
+//ORAM specific code
+////////////////////////////////////////////////////////
+
+typedef intp_ = public int;
+
+rnd@m RND(intp_32 m) = native intLib.randBools;   //rnd@m RND(public int32 m) = native lib.rand;
+typedef CircuitORAM@m<T> = native CircuitOram(m, sizeof(T));
+
+phantom QueueNode@m<T> CircuitORAM@m<T>.readAndRemove(int@m id, rnd@m pos) = native conditionalReadAndRemove;
+phantom void CircuitORAM@m<T>.add(int@m id, int@m pos, QueueNode@m<T> node) = native conditionalPutBack; //Why not rnd@m pos?
+
+struct Pointer@m {
+	int@m index;
+	rnd@m pos;
+};
+
+struct QueueNode@m<T> {
+	Pointer@m next;
+	T data;
+};
+
+/*
+struct SecStore@m<T> {
+	CircuitORAM@(1 << m) < QueueNode@m<T> > oram; //In style of stack.lcc
+	//int32 cnt;
+	int@m cnt;
+};
+
+phantom void SecStore@m<T>.add(int@m index, rnd@m pos, QueueNode@m<T> node) {
+	oram.add(index, pos, node);
+}
+
+phantom QueueNode@m<T> SecStore@m<T>.readAndRemove(int@m index, rnd@m pos) {
+	return oram.readAndRemove(index, pos);
+}
+
+phantom Pointer@m SecStore@m<T>.allocate() {
+	cnt = cnt + 1;
+	return Pointer@m(cnt, RND(m));
+}
+*/
+
+////////////////////////////////////////////////////////
+/*Queue (NOT with doubly linked list)*/
+////////////////////////////////////////////////////////
+struct Queue@m<T> {
+	Pointer@m head; //Info about the CURRENT head
+	Pointer@m tail; //What the NEXT tail should be; we never need to know where the CURRENT tail is!
+	//int@m head_idx;
+	//rnd@m head_pos;
+	//int@m tail_idx;
+	//rnd@m tail_pos;
+	int@m tmp;
+
+	//SecStore@m<T> store;
+	CircuitORAM@(1 << m) < QueueNode@m<T> > oram;
+	int@m cnt; //assign index
+
+	//size??
+};
+
+//INIT FUNCTION?
+
+//Need to support also for corner/special cases!!
+phantom void Queue@m<T>.enqueue(T data) {
+
+	// Save old tail positions
+	int@m oldTailIndex = tail.index;
+	int@m oldTailPos = tail.pos;
+
+	//Create a new RND position for our NEXT node
+	rnd@m tail_pos = RND(m); //For next value of tail
+	//tail.pos = tail_pos;
+
+	//Update ID
+	this.cnt = this.cnt + 1;
+
+	//Update tail to have the pointer for the next
+	tail.index = this.cnt; //newTail.index;
+	//tail.pos =  RND(m); //tail_pos; //newTail.pos;
+
+	int@m newTailPos = tail.pos; // reveal nextPos to secret //IS THIS ACTUALLY NECESSARY?
+
+	//Create new pointer for our next value of "tail" & for QueueNode
+	Pointer@m newTail = Pointer@m(index = this.cnt, pos = tail_pos); //No longer useable below?
+	//Pointer@m newTail = Pointer@m(this.cnt, RND(m));
+
+	// Create new Node for insertion; this will be the new tail
+	QueueNode@m<T> newTailNode = QueueNode@m{T}(next = newTail, data = data);
+
+	// Put in prescribed place according to old Tail
+	this.oram.add(oldTailIndex, oldTailPos, newTailNode);
+
+	//oram.add(tail.index, tail.pos, newTailNode);
+	//this.store.add(tmp.index, tmp.pos, newTailNode);
+}
+
+phantom T Queue@m<T>.dequeue() {
+	//HOW TO CHECK NUM ITEMS??
+	//Need way to identify the <=2 elt case for purposes of read/remove
+	T ret;
+
+	//int@m temp = this.head.pos;
+
+	// Remove current head
+	QueueNode@m<T> oldHeadNode = this.oram.readAndRemove(head.index, head.pos);
+	
+	//WE JUST CREATED OLD HEAD NODE. CANNOT USE -> because there is a random within oldHeadNode???
+	//int@m temp = oldHeadNode.next.pos; //Reveal secret?
+
+	// Update Head
+	//this.head = oldHeadNode.next;
+
+	//NEED THIS!
+	//ret = oldHeadNode.data;
+	//this.head = oldHeadNode.next;
+	ret, this.head = oldHeadNode.(data, next);
+	return ret;
+}
+
+
+/*
+JUNK
+
+	//Pointer@m p_next = this.allocate();
+	//Pointer@m p_prev = this.allocate();	
+	//QueueNode@m<T> node = QueueNode@m{T}(p_next, p_prev, data);
+
+	tmp.index = this.tail.index;
+	tmp.pos = this.tail.pos;
+
+===
+
+	//this.tail.pos = RND(m);
+	//this.tail.cnt = this.store.cnt + 1;
+
+===
+
+	Node@m<T> sameTail = store.readAndRemove(tail.index, tail.pos);
+	sameTail.next = this.store.head;
+	//sameTail.prev = sameTail.prev.next
+
+	Node@m<T> newHead = store.readAndRemove(oldHead.next.index, oldHead.next.pos);
+	newHead.prev = this.store.tail;
+
+	store.add(tail.index, tail.pos, sameTail);
+	store.add(head.index, head.pos, newHead);
+
+*/
