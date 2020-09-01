@@ -67,9 +67,7 @@ Under tools/ folder, the following tools are available:
 References
 --------------------------------------------------------------------------------
 
-\[LWNYS15] [
-  _ObliVM: A Programming Framework for Secure Computation_
-] (http://elaineshi.com/docs/oblivm.pdf)
+\[LWNYS15] [ObliVM: A Programming Framework for Secure Computation](http://elaineshi.com/docs/oblivm.pdf)
   Chang Liu, Xiao Shuan Wang, Kartik Nayak, Yan Huang, Elaine Shi
   IEEE S&P 2015
 
