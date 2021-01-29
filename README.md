@@ -17,7 +17,7 @@ The code is a research-quality proof of concept, and is still under development 
 
 
 --------------------------------------------------------------------------------
-Prerequisit
+Prerequisites
 --------------------------------------------------------------------------------
 
 Oracle Java 8
@@ -67,10 +67,8 @@ Under tools/ folder, the following tools are available:
 References
 --------------------------------------------------------------------------------
 
-\[LWNYS15] [
-  _ObliVM: A Programming Framework for Secure Computation_
-] (http://www.cs.umd.edu/~liuchang/paper/oakland2015-oblivm.pdf)
+\[LWNYS15] [ObliVM: A Programming Framework for Secure Computation](http://elaineshi.com/docs/oblivm.pdf)
   Chang Liu, Xiao Shuan Wang, Kartik Nayak, Yan Huang, Elaine Shi
   IEEE S&P 2015
 
-[Chang Liu]: http://www.cs.umd.edu/~liuchang/
+[Chang Liu]: http://liuchang.co/
